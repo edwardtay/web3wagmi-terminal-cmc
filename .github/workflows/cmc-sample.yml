@@ -1,0 +1,80 @@
+name: cmc liquidation sample
+
+# Snapshot CoinMarketCap's cross-exchange liquidation feed into the repo every
+# fifteen minutes.
+#
+# The API has no historical liquidation endpoint, so a percentile can only rank
+# against what has been collected since polling started, and this app has no
+# database. A committed series is the only store that survives a container
+# restart, and it doubles as the public timestamped record of real API calls the
+# hackathon submission asks for.
+#
+# Two things to know before changing the cadence.
+#
+# 1. Actions minutes. This is 2,880 runs a month. Public repositories get
+#    unlimited minutes; a private one gets 2,000 a month, so this schedule
+#    overruns a private repo by about 40%. The submission requires a public
+#    repository anyway.
+# 2. Credits. Two calls a run is 5,760 credits a month against the 15,000 that
+#    the free Basic tier allows, so the app's own routes have to fit in the
+#    remaining 9,240. That arithmetic is restated in each route.
+
+on:
+  # The schedule is deliberately absent from this published copy. This
+  # repository is a mirror, rebuilt on every sync, so a commit made here by CI
+  # would be destroyed by the next rebuild. The job runs in the private working
+  # repository and its output reaches this one through the replay.
+  # schedule:
+    # Every 15 minutes. GitHub runs scheduled jobs late under load and drops
+    # them outright at peak, so the series has gaps by design and anything
+    # reading it must rank against the samples it has rather than assume a grid.
+    # - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# Never let two runs append at once. A second run starting while the first is
+# between its read and its push would write a sample against a stale file and
+# lose one of them on the rebase.
+concurrency:
+  group: cmc-sample
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Take the sample
+        env:
+          CMC_API_KEY: ${{ secrets.CMC_API_KEY }}
+        run: node scripts/cmc-sample.mjs
+
+      - name: Commit it
+        run: |
+          set -euo pipefail
+          git config user.name  "cmc-sampler"
+          git config user.email "noreply@web3wagmi.com"
+          git add data/liquidations
+          # A run that read nothing has nothing to say. Exit clean rather than
+          # failing, so a quiet upstream does not fill the run history with red.
+          if git diff --cached --quiet; then
+            echo "nothing new"
+            exit 0
+          fi
+          git commit -m "cmc: liquidation sample $(date -u +%Y-%m-%dT%H:%MZ)"
+          # A human commit can land between the checkout and the push. Rebase
+          # onto it rather than failing the run, and try a few times, because at
+          # this cadence a collision is a matter of when.
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            echo "push raced, attempt $i"
+            sleep $((i * 5))
+          done
+          exit 1
