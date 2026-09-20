@@ -517,17 +517,6 @@ export function coinOpenInterest(symbol: string, opts: CmcOptions = {}) {
   );
 }
 
-/**
- * Open interest for one venue's pairs. 1 credit. Needs `exchange_id` or
- * `exchange_slug`, and 400s without one.
- */
-export function venueOpenInterest(exchangeId: number, opts: CmcOptions = {}) {
-  return cmcGet<{ exchange_id: number; exchange_name: string; market_pairs: MarketPair[] }>(
-    "/v5/exchange/derivatives/market-pairs/list/latest",
-    { exchange_id: exchangeId },
-    opts
-  );
-}
 
 /**
  * Sum open interest across pairs, separating what CMC vouches for from what it
@@ -584,36 +573,8 @@ export function cleanOpenInterest(pairs: MarketPair[]): {
   };
 }
 
-// ---- regime --------------------------------------------------------------
+// ---- the key ledger ------------------------------------------------------
 
-/**
- * CMC's own Fear and Greed reading. 1 credit.
- *
- * Worth naming carefully on the page: the terminal already shows the
- * alternative.me index, and these are two different indices from two different
- * publishers that answer the same question. Showing both with their publishers
- * named is the honest presentation.
- */
-export function fearAndGreed(opts: CmcOptions = {}) {
-  return cmcGet<{ value: number; update_time: string; value_classification: string }>(
-    "/v3/fear-and-greed/latest",
-    {},
-    opts
-  );
-}
-
-/** The Altcoin Season Index, with its own yearly high and low for context. 1 credit. */
-export function altcoinSeason(opts: CmcOptions = {}) {
-  return cmcGet<{
-    altcoin_index: number;
-    altcoin_marketcap: number;
-    snapshot_time: string;
-    yearly_high: number;
-    yearly_high_date: string;
-    yearly_low: number;
-    yearly_low_date: string;
-  }>("/v1/altcoin-season-index/latest", {}, opts);
-}
 
 /** The live credit ledger. Free, and the one number a judge can check for themselves. */
 export function keyInfo(opts: CmcOptions = {}) {

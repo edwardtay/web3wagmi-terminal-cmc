@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Panel, Section } from "@/components/ui";
 import { PageChrome } from "@/components/PageChrome";
-import { BUDGET, cmcRaw, cmcReady, keyInfo, type CallRecord } from "@/lib/cmc";
+import { BUDGET, callLedger, cmcRaw, cmcReady, keyInfo, type CallRecord } from "@/lib/cmc";
 import { usdCompact } from "@/lib/format";
 
 // What CoinMarketCap runs on this terminal, and the evidence that it is really
@@ -97,6 +97,11 @@ export default async function CmcPage() {
   ]);
 
   const routeTotal = ENDPOINTS.reduce((s, e) => s + e.monthly, 0);
+
+  // Every call this container has made since it booted, newest first. The panels
+  // populate it as they refresh, so it is a record of the desk running rather
+  // than of this page rendering.
+  const ledger = callLedger().slice(0, 12);
 
   return (
     <PageChrome
@@ -218,6 +223,54 @@ export default async function CmcPage() {
             ) : (
               <p className="text-[12px] text-[var(--text2)]">The ledger could not be read.</p>
             )}
+          </Panel>
+        </Section>
+      </div>
+
+      <div className="mt-4">
+        <Section title="Calls this container has made" id="calls">
+          <Panel title="Newest first, since the server booted">
+            {ledger.length ? (
+              <div className="thin-scroll overflow-x-auto">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th className="ident">Endpoint</th>
+                      <th className="ident">Query</th>
+                      <th className="num">Status</th>
+                      <th className="num">Elapsed</th>
+                      <th className="num">Credits</th>
+                      <th className="ident">When (UTC)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledger.map((c) => (
+                      <tr key={c.path + c.query}>
+                        <td className="ident break-all font-mono text-[11px]">{c.path}</td>
+                        <td className="ident break-all font-mono text-[11px]">{c.query || "none"}</td>
+                        <td className="num">{c.failure ? c.failure : c.status}</td>
+                        <td className="num">{c.elapsedMs} ms</td>
+                        <td className="num">
+                          {c.credits}
+                          {c.claimedCredits != null && c.claimedCredits !== c.credits && (
+                            <span className="text-[var(--text3)]"> (claimed {c.claimedCredits})</span>
+                          )}
+                        </td>
+                        <td className="ident font-mono text-[11px]">{c.at.slice(11, 19)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-[12px] text-[var(--text2)]">
+                No calls yet. The panels populate this as they refresh.
+              </p>
+            )}
+            <p className="mt-3 text-[12px] leading-relaxed text-[var(--text2)]">
+              Credits are what the account was billed. Where the keyless mirror claims a cost it
+              does not charge, both figures are shown.
+            </p>
           </Panel>
         </Section>
       </div>
