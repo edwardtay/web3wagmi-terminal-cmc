@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { Section, Panel, Loading, Unavailable, InfoHint } from "./ui";
 
@@ -28,6 +28,8 @@ interface Payload {
   brief: Brief | null;
   archive?: Brief[];
   note: string | null;
+  /** The server is serving the last session's note and writing a new one behind it. */
+  rewriting?: boolean;
 }
 
 function when(iso: string): string {
@@ -86,7 +88,17 @@ function BriefBody({ text }: { text: string }) {
 
 export function MorningBrief() {
   // Six hours on the server, so the poll here only needs to notice a new one.
-  const { data, loading, failed } = useApi<Payload>("/api/brief", 900);
+  //
+  // Except while one is being written. The server answers instantly with the
+  // previous session's note rather than holding the reader through five route
+  // reads and a model call, so this is the half of that trade that gets the new
+  // note onto the screen: at the standing cadence a reader would sit with the
+  // superseded note for a quarter of an hour.
+  const [poll, setPoll] = useState(900);
+  const { data, loading, failed } = useApi<Payload>("/api/brief", poll);
+  useEffect(() => {
+    setPoll(data?.rewriting ? 20 : 900);
+  }, [data?.rewriting]);
   const [showPast, setShowPast] = useState(false);
 
   const past = data?.archive ?? [];

@@ -28,14 +28,8 @@ function fresh(): Brief | null {
   return briefSession(current.at) === briefSession() ? current.brief : null;
 }
 
-export async function GET() {
-  const hit = fresh();
-  if (hit) {
-    return jsonResponse({ ok: true, brief: hit, archive: archive.slice(0, 4), note: null }, 300);
-  }
-
-  const origin = `http://127.0.0.1:${process.env.PORT ?? 3000}`;
-
+/** Start the rewrite if one is not already running, and hand back the promise. */
+function rewrite(origin: string): Promise<Brief | null> {
   // Coalesced. Several readers arriving at once must not each pay for a note.
   if (!inflight) {
     inflight = writeBrief(origin)
@@ -44,29 +38,75 @@ export async function GET() {
         inflight = null;
       });
   }
-  const brief = await inflight;
+  return inflight;
+}
 
-  if (!brief) {
-    // The previous note rather than nothing. A stale brief with its own date on
-    // it is honest; an empty panel says the terminal has nothing to say.
-    const last = current?.brief ?? null;
-    return jsonResponse(
-      {
-        ok: Boolean(last),
-        brief: last,
-        archive: archive.slice(0, 4),
-        note: last
-          ? "This note could not be rewritten, so the last one stands."
-          : "No note yet. The model is unavailable.",
-      },
-      120
-    );
-  }
-
+function store(brief: Brief) {
   if (current && current.brief.writtenAt !== brief.writtenAt) {
     archive.unshift(current.brief);
     archive.length = Math.min(archive.length, 8);
   }
   current = { at: Date.now(), brief };
-  return jsonResponse({ ok: true, brief, archive: archive.slice(0, 4), note: null }, 300);
+}
+
+export async function GET() {
+  const origin = `http://127.0.0.1:${process.env.PORT ?? 3000}`;
+
+  const hit = fresh();
+  if (hit) {
+    return jsonResponse({ ok: true, brief: hit, archive: archive.slice(0, 4), note: null, rewriting: false }, 300);
+  }
+
+  // A note exists, it is just from the previous session. Serve it now and
+  // rewrite behind the reader.
+  //
+  // Writing a note costs five route reads, one of them the flow desk, and then
+  // a model call. Awaiting that put the whole chain in front of whoever
+  // happened to arrive first after a session turned over, and they watched a
+  // skeleton for the length of it while every other panel on the page had
+  // already rendered. Nobody else paid anything, which is what made it easy to
+  // miss.
+  //
+  // The previous session's note carries its own timestamp and the panel shows
+  // it, so serving it is honest. It is also the more useful answer: a note from
+  // this morning is worth more than a spinner.
+  const last = current?.brief ?? null;
+  if (last) {
+    void rewrite(origin).then((brief) => {
+      if (brief) store(brief);
+    });
+    return jsonResponse(
+      {
+        ok: true,
+        brief: last,
+        archive: archive.slice(0, 4),
+        note: "The session has turned over. This note stood in the last one, and a new one is being written.",
+        rewriting: true,
+      },
+      // Short, because the point of this response is that it is about to be
+      // superseded. The panel shortens its own poll on `rewriting` too.
+      30
+    );
+  }
+
+  // Nothing to show at all. This is the only path that waits, and it happens
+  // once per container, before instrumentation.ts has warmed it or when that
+  // warm failed.
+  const brief = await rewrite(origin);
+
+  if (!brief) {
+    return jsonResponse(
+      {
+        ok: false,
+        brief: null,
+        archive: archive.slice(0, 4),
+        note: "No note yet. The model is unavailable.",
+        rewriting: false,
+      },
+      120
+    );
+  }
+
+  store(brief);
+  return jsonResponse({ ok: true, brief, archive: archive.slice(0, 4), note: null, rewriting: false }, 300);
 }

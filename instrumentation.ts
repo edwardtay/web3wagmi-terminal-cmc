@@ -23,9 +23,16 @@ export async function register() {
   void (async () => {
     // The server is not listening the instant this hook runs.
     await new Promise((r) => setTimeout(r, 3000));
-    // Unlocks is warmed before signals because signals reads it, and a cold
-    // unlocks parse is the slowest thing in the app.
-    for (const path of ["/api/netflow", "/api/unlocks", "/api/signals"]) {
+    // Order matters twice over. Unlocks is warmed before signals because
+    // signals reads it, and a cold unlocks parse is the slowest thing in the
+    // app. The brief is warmed last because it reads signals, netflow, derivs,
+    // breadth and stress and then makes a model call, so warming it before
+    // those would pay for them cold and then pay again.
+    //
+    // Without this the first reader after a deploy watches a skeleton for the
+    // length of that whole chain while every other panel on the page has
+    // already rendered.
+    for (const path of ["/api/netflow", "/api/unlocks", "/api/signals", "/api/brief"]) {
       try {
         await fetch(`${origin}${path}`, {
           cache: "no-store",
