@@ -13,6 +13,7 @@ import { Snapshot, Tape } from "@/components/Snapshot";
 import { FocusChart } from "@/components/FocusChart";
 import { StressIndex } from "@/components/StressIndex";
 import { LiveBoard } from "@/components/LiveBoard";
+import { VolumeQuality } from "@/components/VolumeQuality";
 import { FundingBoard } from "@/components/FundingBoard";
 import { OpenInterest } from "@/components/OpenInterest";
 import { Liquidations } from "@/components/Liquidations";
@@ -113,6 +114,10 @@ export default async function Home({
         >
           <LiveBoard />
         </Section>
+
+        {/* Directly under the board, because it is the caveat on every volume
+            figure above it: most of what venues print is not counted. */}
+        <VolumeQuality />
 
         {/* ---- The focused instrument ----
             Everything that follows the focus control, contiguous and under a

@@ -52,6 +52,7 @@ const SECTIONS: Item[] = [
   { label: "Snapshot", hint: "headline prices, dominance, fear and greed", href: "/#snapshot" },
   { label: "Chart and context", hint: "the focused instrument: candles, funding, open interest, its signals", href: "/#focus" },
   { label: "Live board", hint: "streaming prices across the universe", href: "/#live" },
+  { label: "Volume quality", hint: "how much reported volume CoinMarketCap will not count", href: "/#volume" },
   { label: "Funding", hint: "perp funding, annualised, CEX vs Hyperliquid", href: "/#funding" },
   { label: "Open interest", hint: "OI levels, regime, positioning", href: "/#oi" },
   { label: "Liquidations", hint: "live force-order tape", href: "/#liquidations" },

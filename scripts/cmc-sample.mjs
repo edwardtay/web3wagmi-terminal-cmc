@@ -11,7 +11,10 @@
 // A file in the repo survives all of that, and it is also the evidence artefact
 // the submission asks for, a public timestamped record of real API calls.
 //
-// Appends one JSON line per run to data/liquidations.jsonl. Two credits a run.
+// Appends one JSON line per run to data/liquidations/<UTC date>.jsonl.
+//
+// Two credits a run. The global-metrics read alongside it is keyless and free,
+// so adding it changed the cost by nothing.
 //
 // Usage: CMC_API_KEY=... node scripts/cmc-sample.mjs
 
@@ -45,10 +48,10 @@ if (!key) {
  * `error_code` comes back as a string on the v3 and v5 endpoints and as a
  * number on the v1 ones, so it is read loosely on purpose.
  */
-async function get(path) {
+async function get(path, keyless = false) {
   try {
-    const res = await fetch(`${BASE}${path}`, {
-      headers: { "X-CMC_PRO_API_KEY": key, Accept: "application/json" },
+    const res = await fetch(`${BASE}${keyless ? "/public-api" : ""}${path}`, {
+      headers: keyless ? { Accept: "application/json" } : { "X-CMC_PRO_API_KEY": key, Accept: "application/json" },
       signal: AbortSignal.timeout(30_000),
     });
     const body = await res.json();
@@ -86,9 +89,15 @@ function windows(row, keep4h) {
   return out;
 }
 
-const [exBody, coinBody] = await Promise.all([
+// Global metrics comes from the keyless mirror, so it costs nothing and does
+// not compete with the liquidation reads for the free tier's 15,000 credits.
+// It is here rather than in its own job because the percentile it feeds wants
+// the same cadence, and a second workflow would double the Actions minutes for
+// a call that is free.
+const [exBody, coinBody, gmBody] = await Promise.all([
   get("/v5/derivatives/liquidations/exchange/list/latest"),
   get("/v5/derivatives/liquidations/cryptocurrency/list/latest"),
+  get("/v1/global-metrics/quotes/latest", true),
 ]);
 
 // A sample missing a side is worse than no sample: it would rank a partial
@@ -108,6 +117,25 @@ const coins = coinBody.data.cryptocurrencies
   .sort((a, b) => b.h24[0] - a.h24[0])
   .slice(0, KEEP_COINS);
 
+// What CoinMarketCap counted against what the venues claimed, per slice, in
+// millions. Nothing else free publishes an adjusted figure beside a reported
+// one, and the ratio between them is the only free wash-trading gauge there is.
+// Null rather than absent when the read fails, so a gap in the series is
+// visible instead of being read as a quiet day.
+const gmq = gmBody?.data?.quote?.USD;
+const m = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v) / 1e6) : null);
+const vol = gmq
+  ? {
+      total: [m(gmq.total_volume_24h), m(gmq.total_volume_24h_reported)],
+      alt: [m(gmq.altcoin_volume_24h), m(gmq.altcoin_volume_24h_reported)],
+      defi: [m(gmq.defi_volume_24h), m(gmq.defi_volume_24h_reported)],
+      stable: [m(gmq.stablecoin_volume_24h), m(gmq.stablecoin_volume_24h_reported)],
+      deriv: [m(gmq.derivatives_volume_24h), m(gmq.derivatives_volume_24h_reported)],
+      mcap: m(gmq.total_market_cap),
+      btcDom: gmq.btc_dominance ?? null,
+    }
+  : null;
+
 const sample = {
   // Stamped by the sampler rather than taken from the payload, because the two
   // feeds carry their own last_updated and they do not always agree.
@@ -119,6 +147,7 @@ const sample = {
   coinsTotal: coinBody.data.total_size ?? null,
   ex: exchanges,
   co: coins,
+  vol,
 };
 
 await mkdir(dirname(OUT), { recursive: true });

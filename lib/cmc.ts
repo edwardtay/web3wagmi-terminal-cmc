@@ -30,6 +30,23 @@ import { getJson } from "./http";
 const BASE = "https://pro-api.coinmarketcap.com";
 
 /**
+ * The keyless mirror of the same API.
+ *
+ * Prefixing a path with `/public-api` serves it without a credential and
+ * without spending a credit. Verified on 2026-09-20: fear and greed, the CMC100
+ * and CMC20 indices, the altcoin season index and global metrics all answer 200
+ * with no key at all. The derivatives liquidation family does not, answering
+ * 1005 "An API Key is required for this call".
+ *
+ * This matters for the budget rather than for convenience. The free Basic tier
+ * allows 15,000 credits a month and the liquidation desks need most of them, so
+ * anything reachable here is a panel that costs nothing and competes with
+ * nothing. Reach for this first and fall back to the keyed base only when a
+ * path refuses.
+ */
+const KEYLESS_BASE = "https://pro-api.coinmarketcap.com/public-api";
+
+/**
  * Credits a call costs, measured from `status.credit_count` on a live key
  * rather than taken from the docs, which do not price the derivatives or key
  * endpoints at all.
@@ -141,7 +158,14 @@ export interface CallRecord {
   query: string;
   status: number;
   elapsedMs: number;
+  /** What the account was actually billed. */
   credits: number;
+  /**
+   * What the envelope said it cost, when that differs from what was billed.
+   *
+   * Only set on the keyless mirror, which reports 1 and charges 0.
+   */
+  claimedCredits?: number;
   at: string;
   failure: CmcFailure | null;
 }
@@ -228,6 +252,103 @@ export async function cmcGet<T>(
   });
 
   return failure ? null : (body.data ?? null);
+}
+
+/**
+ * One call against the keyless mirror. No key, no credit, same envelope.
+ *
+ * Still recorded in the ledger, with zero credits, because the judge page
+ * should show that these calls happen and that they cost nothing. A panel whose
+ * cost is invisible is one nobody can budget around.
+ */
+export async function cmcGetFree<T>(
+  path: string,
+  params: Record<string, string | number | undefined> = {},
+  opts: CmcOptions = {}
+): Promise<T | null> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  const query = qs.toString();
+  const at = new Date().toISOString();
+
+  const body = await getJson<CmcEnvelope<T>>(`${KEYLESS_BASE}${path}${query ? `?${query}` : ""}`, {
+    revalidate: opts.revalidate ?? 1800,
+    timeout: opts.timeout ?? 20_000,
+  });
+
+  const code = body?.status ? String(body.status.error_code ?? "0") : "x";
+  const failure = code === "0" ? null : (FAILURE_BY_CODE[code] ?? "upstream");
+  const rec: CallRecord = {
+    path: `/public-api${path}`,
+    query,
+    status: failure ? 0 : 200,
+    elapsedMs: body?.status?.elapsed ?? 0,
+    // Zero, not what the envelope says.
+    //
+    // The keyless mirror returns `credit_count: 1` and charges nothing. Tested
+    // 2026-09-20: six calls through `/public-api` moved the account ledger from
+    // 93 to 93. There is no key on the request, so there is no account to bill;
+    // the field looks like it is copied from the keyed path.
+    //
+    // Reporting the envelope's number would put a cost on the judge page that
+    // the account never paid and would make the budget arithmetic wrong in the
+    // direction that matters, by overstating what is left.
+    credits: 0,
+    // What it claimed, kept so the discrepancy is visible rather than silently
+    // corrected. A number quietly overridden is one nobody can check.
+    claimedCredits: body?.status?.credit_count ?? 0,
+    at,
+    failure,
+  };
+  ledger.set(`/public-api${path}?${query}`, rec);
+  opts.collect?.push(rec);
+
+  return failure ? null : (body?.data ?? null);
+}
+
+// ---- volume quality ------------------------------------------------------
+
+/**
+ * Global metrics, keyless and free.
+ *
+ * The pair worth having is `*_volume_24h` against `*_volume_24h_reported`:
+ * what CoinMarketCap counts, against what the venues claimed. Nothing else free
+ * publishes an adjusted figure beside the reported one, so the gap between them
+ * is a wash-trading gauge no other source can give.
+ *
+ * Measured 2026-09-20: $70.5bn counted against $435.7bn reported, so 83.8% of
+ * the world's printed spot volume was discarded. The slices differ sharply and
+ * that difference is the reading: derivatives came in at 1.04x while spot was
+ * 6.18x, which says the inflation lives on spot books rather than in perps.
+ */
+export interface GlobalMetrics {
+  btc_dominance: number;
+  eth_dominance: number;
+  quote: {
+    USD: {
+      total_market_cap: number;
+      total_volume_24h: number;
+      total_volume_24h_reported: number;
+      altcoin_volume_24h: number;
+      altcoin_volume_24h_reported: number;
+      altcoin_market_cap: number;
+      defi_volume_24h: number;
+      defi_volume_24h_reported: number;
+      stablecoin_volume_24h: number;
+      stablecoin_volume_24h_reported: number;
+      stablecoin_market_cap: number;
+      derivatives_volume_24h: number;
+      derivatives_volume_24h_reported: number;
+      last_updated: string;
+    };
+  };
+}
+
+/** Global metrics. Keyless, so 0 credits. */
+export function globalMetrics(opts: CmcOptions = {}) {
+  return cmcGetFree<GlobalMetrics>("/v1/global-metrics/quotes/latest", {}, opts);
 }
 
 // ---- liquidations --------------------------------------------------------

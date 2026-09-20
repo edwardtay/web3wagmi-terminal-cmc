@@ -24,6 +24,7 @@ export const SECTION_GROUPS: { label: string; items: { id: string; label: string
     items: [
       { id: "stress", label: "Stress index" },
       { id: "live", label: "Live board" },
+      { id: "volume", label: "Volume quality" },
     ],
   },
   // The focused instrument gets its own group because it is the one part of

@@ -22,7 +22,18 @@ const DIR = join(process.cwd(), "data", "liquidations");
 interface Sample {
   t: string;
   ex: { id: number; n: string; h1: number[]; h24: number[]; h4?: number[] }[];
+  /** Volume counted against volume reported, per slice, in millions. */
+  vol?: {
+    total: [number | null, number | null];
+    alt: [number | null, number | null];
+    defi: [number | null, number | null];
+    stable: [number | null, number | null];
+    deriv: [number | null, number | null];
+  } | null;
 }
+
+/** The slices the sampler records, and the panel reads. */
+export type VolSlice = "total" | "alt" | "defi" | "stable" | "deriv";
 
 /** The concentration readings derived from one sample, by window. */
 export interface SeriesPoint {
@@ -117,4 +128,60 @@ export function percentile(value: number, sample: number[], minSample = 30): num
   // Midpoint of the tied block, so a run of identical quiet hours does not put
   // every one of them at the top of its own distribution.
   return Math.round((100 * (below + equal / 2)) / vs.length);
+}
+
+
+/**
+ * The reported-over-counted volume ratio per slice, oldest first.
+ *
+ * Read from the same files as `liqSeries`, because they are the same samples.
+ * Kept separate because a caller wants one or the other and parsing the whole
+ * day to compute both would be work thrown away either way.
+ *
+ * Samples written before the sampler recorded volume have no `vol` field, and
+ * they are skipped rather than counted as zero. A ratio of zero would sit at
+ * the bottom of every percentile and drag the reading down for as long as those
+ * early samples survive.
+ */
+export async function volSeries(): Promise<{ at: string; ratios: Record<VolSlice, number | null> }[]> {
+  const out: { at: string; ratios: Record<VolSlice, number | null> }[] = [];
+
+  let files: string[];
+  try {
+    files = (await readdir(DIR)).filter((f) => f.endsWith(".jsonl")).sort();
+  } catch {
+    return out;
+  }
+
+  const SLICES: VolSlice[] = ["total", "alt", "defi", "stable", "deriv"];
+
+  for (const f of files) {
+    let text: string;
+    try {
+      text = await readFile(join(DIR, f), "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      let s: Sample;
+      try {
+        s = JSON.parse(line) as Sample;
+      } catch {
+        continue;
+      }
+      if (!s?.t || !s.vol) continue;
+      const ratios = {} as Record<VolSlice, number | null>;
+      for (const k of SLICES) {
+        const pair = s.vol[k];
+        const counted = pair?.[0];
+        const reported = pair?.[1];
+        ratios[k] = counted && reported && counted > 0 ? reported / counted : null;
+      }
+      out.push({ at: s.t, ratios });
+    }
+  }
+
+  out.sort((a, b) => a.at.localeCompare(b.at));
+  return out;
 }
