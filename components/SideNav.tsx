@@ -44,6 +44,7 @@ export const SECTION_GROUPS: { label: string; items: { id: string; label: string
       { id: "funding", label: "Funding" },
       { id: "oi", label: "Open interest" },
       { id: "liquidations", label: "Liquidations" },
+      { id: "forced", label: "Forced selling" },
     ],
   },
   {

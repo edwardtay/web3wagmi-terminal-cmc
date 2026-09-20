@@ -16,6 +16,7 @@ import { LiveBoard } from "@/components/LiveBoard";
 import { FundingBoard } from "@/components/FundingBoard";
 import { OpenInterest } from "@/components/OpenInterest";
 import { Liquidations } from "@/components/Liquidations";
+import { ForcedSelling } from "@/components/ForcedSelling";
 import { OptionsDesk } from "@/components/OptionsDesk";
 import { Microstructure } from "@/components/Microstructure";
 import { ExchangeNetflow } from "@/components/ExchangeNetflow";
@@ -145,6 +146,10 @@ export default async function Home({
           </Section>
 
           <Liquidations />
+
+          {/* Directly under the Binance tape, because the reading is the gap
+              between them: that tape is one venue's share of this. */}
+          <ForcedSelling />
         </div>
 
         {/* ---- On-chain ---- */}

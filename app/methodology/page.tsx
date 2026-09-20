@@ -68,6 +68,13 @@ export default function MethodologyPage() {
             Historical <span className="font-mono">eth_call</span> and{" "}
             <span className="font-mono">eth_getBalance</span> reads for the exchange netflow panel.
           </Row>
+          <Row term="CoinMarketCap">
+            The Pro API, which needs a key. Used for one thing the other sources here cannot give:
+            liquidation value aggregated across the nine derivatives venues it reports, broken out
+            per venue and per coin. Binance publishes force orders for Binance and Hyperliquid
+            publishes Hyperliquid, so the cross-venue total has no free substitute. CoinMarketCap
+            disclaims the accuracy of the venue data it relays.
+          </Row>
           <Row term="CoinGecko">Total market capitalisation, volume, and Bitcoin and Ethereum dominance.</Row>
           <Row term="alternative.me">The Fear and Greed index, taken as published.</Row>
           <Row term="mempool.space">Bitcoin fee tiers, mempool backlog, hashrate and block height.</Row>
@@ -147,9 +154,22 @@ export default function MethodologyPage() {
             token moved. Read a TVL change alongside the token&apos;s price change.
           </p>
           <p>
-            Liquidation totals cover only the current browser session and only Binance USDT-margined
-            futures. They are a live feed, not a historical record, and they understate the whole
-            market.
+            The live force-order tape covers the current browser session and Binance USDT-margined
+            futures alone. It starts empty on every page load and holds only what has printed since,
+            so it understates the market on two counts. The cross-venue panel below it answers the
+            second one: on 20 September 2026 Binance carried 54% of the day&apos;s liquidation value
+            across the nine venues CoinMarketCap reports.
+          </p>
+          <p>
+            Nine venues is the whole universe that feed covers, so a venue share on that panel is a
+            share of what CoinMarketCap can see rather than of every derivatives venue that exists.
+          </p>
+          <p>
+            CoinMarketCap publishes no historical liquidation endpoint, only rolling 1h, 4h and 24h
+            windows. The concentration percentile therefore ranks against a series this desk has
+            collected for itself since 20 September 2026, and the panel states the sample size
+            beside the reading. A container holds whatever series was in the image it was built
+            from, so a long gap between deploys shows as an older sample window.
           </p>
           <p>
             Yield figures are as published by each protocol through DefiLlama. A yield that is

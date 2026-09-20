@@ -20,6 +20,7 @@ const ROUTES: Route[] = [
   { path: "/api/board", label: "Price board seed", upstream: "Binance spot" },
   { path: "/api/candles?symbol=BTC&interval=1h&limit=50", label: "Candles", upstream: "Binance spot" },
   { path: "/api/derivs", label: "Funding and open interest", upstream: "Binance futures, Hyperliquid" },
+  { path: "/api/forced", label: "Cross-venue liquidations", upstream: "CoinMarketCap" },
   { path: "/api/options?currency=BTC", label: "Options desk", upstream: "Deribit" },
   { path: "/api/depth?symbol=BTC", label: "Order book seed", upstream: "Binance spot" },
   { path: "/api/netflow", label: "Exchange netflow", upstream: "archive JSON-RPC nodes, Binance" },
