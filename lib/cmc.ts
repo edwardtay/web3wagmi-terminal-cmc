@@ -308,6 +308,62 @@ export async function cmcGetFree<T>(
   return failure ? null : (body?.data ?? null);
 }
 
+/**
+ * The same call, handing back the whole envelope instead of just `data`.
+ *
+ * The evidence page prints a real request and its real response, including the
+ * `status` block carrying `credit_count` and `elapsed`. A submission that
+ * describes what an API can do is not evidence that it was called, and a
+ * `credit_count` coming back from the vendor is the one part of that claim a
+ * reader can check against their own dashboard.
+ *
+ * Deliberately separate from `cmcGet` rather than an option on it, so no panel
+ * can accidentally start holding whole envelopes in memory for a payload it
+ * only reads three fields from.
+ */
+export async function cmcRaw<T>(
+  path: string,
+  params: Record<string, string | number | undefined> = {},
+  opts: CmcOptions = {}
+): Promise<{ url: string; envelope: CmcEnvelope<T> | null }> {
+  const key = process.env.CMC_API_KEY;
+
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  const query = qs.toString();
+  // The key never appears in this. It travels on a header, which is also why
+  // the URL is safe to print on a public page.
+  const url = `${BASE}${path}${query ? `?${query}` : ""}`;
+
+  if (!key) return { url, envelope: null };
+
+  const envelope = await getJson<CmcEnvelope<T>>(url, {
+    revalidate: opts.revalidate ?? 3600,
+    timeout: opts.timeout ?? 20_000,
+    headers: { "X-CMC_PRO_API_KEY": key },
+  });
+
+  if (envelope?.status) {
+    const code = String(envelope.status.error_code ?? "0");
+    const failure = code === "0" ? null : (FAILURE_BY_CODE[code] ?? "upstream");
+    const rec: CallRecord = {
+      path,
+      query,
+      status: failure ? 0 : 200,
+      elapsedMs: envelope.status.elapsed ?? 0,
+      credits: envelope.status.credit_count ?? 0,
+      at: new Date().toISOString(),
+      failure,
+    };
+    ledger.set(`${path}?${query}`, rec);
+    opts.collect?.push(rec);
+  }
+
+  return { url, envelope };
+}
+
 // ---- volume quality ------------------------------------------------------
 
 /**

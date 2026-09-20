@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: BASE, lastModified: now, changeFrequency: "hourly", priority: 1 },
     { url: `${BASE}/thegraph`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE}/cmc`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/methodology`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE}/status`, lastModified: now, changeFrequency: "hourly", priority: 0.4 },
     ...ASSETS.map((a) => ({

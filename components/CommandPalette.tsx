@@ -76,6 +76,7 @@ const SECTIONS: Item[] = [
   { label: "Stress index", hint: "our composite market stress score", href: "/#stress" },
   { label: "Unlocks", hint: "token unlock calendar", href: "/#unlocks" },
   { label: "The Graph", hint: "what the indexed on-chain desks run on", href: "/thegraph" },
+  { label: "CoinMarketCap", hint: "the cross-venue liquidation desks, their cost, and a live call", href: "/cmc" },
   { label: "Methodology", hint: "how every number is computed", href: "/methodology" },
   { label: "Data status", hint: "which upstreams are live", href: "/status" },
 ];
