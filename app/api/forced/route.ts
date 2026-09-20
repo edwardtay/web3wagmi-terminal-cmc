@@ -19,10 +19,10 @@ import { liqSeries, percentile } from "@/lib/liqSeries";
 // that share was 54.4% of the last twenty four hours, so the existing tape was
 // showing about half of what happened and saying nothing about the rest.
 //
-// The reading this route exists for is not the dollar total. It is how far the
-// selling spread: a $300M day on one venue is an exchange's liquidation engine
-// and thin books, and the same $300M across nine is the market repricing. The
-// effective venue count separates them and a dollar figure cannot.
+// What this route exists to measure is how far the selling spread. A $300M day
+// on one venue is an exchange's liquidation engine and thin books; the same
+// $300M across nine is the market repricing. The effective venue count
+// separates them and a dollar figure cannot.
 //
 // Per house rule, that is ranked against its own history rather than printed as
 // a level, and the history comes from `data/liquidations/`, because the API

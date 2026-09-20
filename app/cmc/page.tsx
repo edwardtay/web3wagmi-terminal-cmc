@@ -27,9 +27,15 @@ export const metadata: Metadata = {
 
 // One live call for the verbatim evidence, at 1 credit.
 //
-// BUDGET.monthly(3600, 1) is 720 credits a month. With the sampler at 2,880,
-// /api/forced at 6,480 and /api/leverage at 3,600 that is 13,680 of the free
-// tier's 15,000, and the rest is headroom for /status probes.
+// BUDGET.monthly(3600, 1) is 720 credits a month, and it is counted into the
+// exchange/list row of the table below rather than given a row of its own,
+// because it is the same endpoint. With the sampler at 2,880, /api/forced at
+// 6,480 and /api/leverage at 3,600 that is 13,680 of the free tier's 15,000,
+// and the rest is headroom for /status probes.
+//
+// The table must add to that same 13,680. It did not: this page's own 720 was
+// missing from it, so it printed 12,960 and contradicted every other statement
+// of the budget in the repository.
 export const revalidate = 3600;
 
 /** Every endpoint this terminal calls, with the cost measured rather than assumed. */
@@ -42,7 +48,7 @@ const ENDPOINTS: {
   used: string;
 }[] = [
   { path: "/v5/derivatives/liquidations/quotes/latest", credits: 1, window: "20 min", monthly: 2160, used: "Forced selling, the headline" },
-  { path: "/v5/derivatives/liquidations/exchange/list/latest", credits: 1, window: "20 min + 30 min", monthly: 3600, used: "Forced selling, the venue split. Also the sampler" },
+  { path: "/v5/derivatives/liquidations/exchange/list/latest", credits: 1, window: "20 min + 30 min + 1 h", monthly: 4320, used: "Forced selling, the venue split. Also the sampler, and the live call on this page" },
   { path: "/v5/derivatives/liquidations/cryptocurrency/list/latest", credits: 1, window: "20 min + 2 h + 30 min", monthly: 3960, used: "Forced selling and Leverage cleared. Also the sampler" },
   { path: "/v5/cryptocurrency/derivatives/market-pairs/list/latest", credits: 1, window: "2 h, nine coins", monthly: 3240, used: "Leverage cleared, the open interest denominator" },
   { path: "/public-api/v1/global-metrics/quotes/latest", credits: 0, keyless: true, window: "30 min", monthly: 0, used: "Volume quality. Keyless, so it costs nothing" },
@@ -66,7 +72,7 @@ function Code({ children }: { children: string }) {
   );
 }
 
-/** Trim a payload to one array element so the page prints a shape, not a wall. */
+/** Trim a payload to one array element, so the page prints a readable shape. */
 function sample(value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) {
     return value.length > 1 ? [sample(value[0], depth + 1), `... ${value.length} items`] : value.map((v) => sample(v, depth + 1));
@@ -171,7 +177,7 @@ export default async function CmcPage() {
                 <div className="space-y-3">
                   <Code>{JSON.stringify({ status: envelope.status, data: sample(envelope.data) }, null, 2)}</Code>
                   <p className="text-[12px] leading-relaxed text-[var(--text2)]">
-                    Arrays are trimmed to one element so this prints a shape rather than a wall. The{" "}
+                    Arrays are trimmed to one element to keep this readable. The{" "}
                     <span className="font-mono">status</span> block is verbatim, and{" "}
                     <span className="font-mono">credit_count</span> in it is what the account was
                     billed for this request. Check it against the ledger below.

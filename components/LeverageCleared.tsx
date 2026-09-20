@@ -1,7 +1,7 @@
 "use client";
 
 import { AsOf, BarCell, InfoHint, Loading, Panel, Section, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
-import { pctPlain, usdCompact } from "@/lib/format";
+import { pctPlain, usdCompact , NA} from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { LeveragePayload, LeverageRow } from "@/app/api/leverage/route";
 
@@ -50,7 +50,7 @@ export function LeverageCleared() {
         {loading && <Loading rows={6} />}
 
         {!loading && (failed || !data?.ok) && (
-          <Unavailable what={data?.failure ?? "Leverage cleared"} />
+          <Unavailable what="Leverage cleared" reason={data?.failure} />
         )}
 
         {!loading && data?.ok && totals && (
@@ -119,7 +119,7 @@ export function LeverageCleared() {
                     <td className="num" style={{ color: LONG }}>{usdCompact(r.liquidated24h)}</td>
                     <td className="num">{usdCompact(r.openInterest)}</td>
                     <td className="num">
-                      {r.clearedFraction != null ? pctPlain(100 * r.clearedFraction, 3) : "-"}
+                      {r.clearedFraction != null ? pctPlain(100 * r.clearedFraction, 3) : NA}
                     </td>
                     <td className="num">
                       <BarCell value={r.clearedFraction ?? 0} max={maxCleared} color={LONG} />
@@ -127,10 +127,10 @@ export function LeverageCleared() {
                     <td className="num text-[var(--text3)]">
                       {r.clearedFractionUnfiltered != null
                         ? pctPlain(100 * r.clearedFractionUnfiltered, 3)
-                        : "-"}
+                        : NA}
                     </td>
                     <td className="num text-[var(--text3)]">
-                      {r.flaggedShare != null ? pctPlain(100 * r.flaggedShare) : "-"}
+                      {r.flaggedShare != null ? pctPlain(100 * r.flaggedShare) : NA}
                     </td>
                     <td className="num text-[var(--text3)]">
                       {r.cleanPairs} of {r.cleanPairs + r.flaggedPairs}

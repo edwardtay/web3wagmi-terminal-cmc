@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AsOf, BarCell, Loading, Meter, Panel, Section, Segmented, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
-import { pctPlain, usdCompact } from "@/lib/format";
+import { pctPlain, usdCompact , NA} from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { ForcedPayload } from "@/app/api/forced/route";
 
@@ -92,7 +92,7 @@ export function ForcedSelling() {
         {loading && <Loading rows={6} />}
 
         {!loading && (failed || !data?.ok || !win) && (
-          <Unavailable what={data?.failure ?? "Cross-venue liquidations"} />
+          <Unavailable what="Cross-venue liquidations" reason={data?.failure} />
         )}
 
         {!loading && data?.ok && win && (
@@ -242,7 +242,7 @@ export function ForcedSelling() {
                         <span className="font-semibold">{r.symbol}</span>{" "}
                         <span className="text-[var(--text3)]">{r.name}</span>
                       </td>
-                      <td className="num">{r.rank || "-"}</td>
+                      <td className="num">{r.rank || NA}</td>
                       <td className="num">{usdCompact(r.total)}</td>
                       <td className="num" style={{ color: LONG }}>{usdCompact(r.long)}</td>
                       <td className="num" style={{ color: SHORT }}>{usdCompact(r.short)}</td>

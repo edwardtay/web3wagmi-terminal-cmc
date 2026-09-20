@@ -1,7 +1,7 @@
 "use client";
 
 import { AsOf, BarCell, Loading, Panel, Section, TableWrap, Th, Unavailable } from "@/components/ui";
-import { pctPlain, usdCompact } from "@/lib/format";
+import { pctPlain, usdCompact , NA} from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { VolumePayload } from "@/app/api/volume/route";
 
@@ -44,7 +44,7 @@ export function VolumeQuality() {
         {loading && <Loading rows={5} />}
 
         {!loading && (failed || !data?.ok) && (
-          <Unavailable what={data?.failure ?? "Volume quality"} />
+          <Unavailable what="Volume quality" reason={data?.failure} />
         )}
 
         {!loading && data?.ok && spot && (
@@ -52,7 +52,7 @@ export function VolumeQuality() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <div className="font-mono text-2xl font-bold tabular-nums text-[var(--text)]">
-                  {spot.inflation ? `${spot.inflation.toFixed(2)}x` : "-"}
+                  {spot.inflation ? `${spot.inflation.toFixed(2)}x` : NA}
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text3)]">
                   spot volume reported against counted
@@ -69,7 +69,7 @@ export function VolumeQuality() {
                   className="font-mono text-2xl font-bold tabular-nums"
                   style={{ color: deriv?.inflation && deriv.inflation < HIGH ? "var(--pos)" : "var(--text)" }}
                 >
-                  {deriv?.inflation ? `${deriv.inflation.toFixed(2)}x` : "-"}
+                  {deriv?.inflation ? `${deriv.inflation.toFixed(2)}x` : NA}
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text3)]">
                   the same on derivatives volume
@@ -140,7 +140,7 @@ export function VolumeQuality() {
                         className="num font-semibold"
                         style={{ color: (r.inflation ?? 0) >= HIGH ? "var(--neg)" : "var(--pos)" }}
                       >
-                        {r.inflation ? `${r.inflation.toFixed(2)}x` : "-"}
+                        {r.inflation ? `${r.inflation.toFixed(2)}x` : NA}
                       </td>
                       <td className="num">
                         <BarCell
@@ -150,10 +150,10 @@ export function VolumeQuality() {
                         />
                       </td>
                       <td className="num text-[var(--text3)]">
-                        {r.discarded != null ? pctPlain(100 * r.discarded) : "-"}
+                        {r.discarded != null ? pctPlain(100 * r.discarded) : NA}
                       </td>
                       <td className="num text-[var(--text3)]">
-                        {r.percentile != null ? `${r.percentile}th` : "-"}
+                        {r.percentile != null ? `${r.percentile}th` : NA}
                       </td>
                     </tr>
                   ))}

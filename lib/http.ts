@@ -11,6 +11,21 @@ export interface GetJsonOptions {
   timeout?: number;
   headers?: Record<string, string>;
   /**
+   * Parse and return the body on a non-2xx instead of null.
+   *
+   * The default is right almost everywhere: a caller that only wants data has
+   * nothing to do with an error page. It is wrong for an upstream that puts the
+   * useful part of a failure in the body of the error response. CoinMarketCap
+   * answers 401 with `error_code: 1001` and 403 with `1006`, which are "the key
+   * was refused" and "this plan does not carry this endpoint", two facts a
+   * reader needs told apart. Without this the caller sees null for both and can
+   * only say the upstream did not answer.
+   *
+   * The failure is still tallied and a 429 still sets the rate-limit clock, so
+   * nothing about the diagnostics changes. Only the return does.
+   */
+  keepErrorBody?: boolean;
+  /**
    * Hold the parsed result in process for `revalidate` seconds.
    * Next's fetch cache silently refuses anything over 2MB, and several
    * upstreams here are far past that (the Binance 24h board is ~2.5MB and is
@@ -116,7 +131,7 @@ export function rateLimitedRecently(withinMs = 60_000): boolean {
 }
 
 export async function getJson<T>(url: string, opts: GetJsonOptions = {}): Promise<T | null> {
-  const { revalidate = 60, timeout = 9000, headers, memo = false } = opts;
+  const { revalidate = 60, timeout = 9000, headers, memo = false, keepErrorBody = false } = opts;
 
   if (memo) {
     const hit = memoGet(url, revalidate);
@@ -138,7 +153,14 @@ export async function getJson<T>(url: string, opts: GetJsonOptions = {}): Promis
       if (!res.ok) {
         if (res.status === 429) lastRateLimitAt = Date.now();
         noteFailure(url, `HTTP ${res.status}`);
-        return null;
+        if (!keepErrorBody) return null;
+        // The error body, when the caller asked for it. Never memoised: a
+        // cached failure would outlive the thing that caused it.
+        try {
+          return (await res.json()) as T;
+        } catch {
+          return null;
+        }
       }
       const parsed = (await res.json()) as T;
       if (memo && revalidate > 0) memoSet(url, parsed, revalidate);

@@ -89,11 +89,20 @@ export function Panel({
   );
 }
 
-/** What a panel shows when its upstream is unavailable. Never a blank card. */
-export function Unavailable({ what = "This panel" }: { what?: string }) {
+/**
+ * What a panel shows when its upstream is unavailable. Never a blank card.
+ *
+ * `what` names the panel and is read into a sentence, so it has to be a noun
+ * phrase. Passing a whole sentence produces "CoinMarketCap did not answer. is
+ * unavailable right now.", which is what happened when the CMC panels handed
+ * their failure text straight in. The reason belongs in `reason`, on its own
+ * line, where it can be a sentence.
+ */
+export function Unavailable({ what = "This panel", reason }: { what?: string; reason?: string | null }) {
   return (
     <div className="py-6 text-center font-mono text-[11px] text-[var(--text3)]">
-      {what} is unavailable right now.
+      <div>{what} is unavailable right now.</div>
+      {reason && <div className="mt-1 text-[var(--text3)]">{reason}</div>}
     </div>
   );
 }

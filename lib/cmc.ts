@@ -198,9 +198,11 @@ export interface CmcOptions {
  * One call against the Pro API. Returns `data`, or null on any failure, so every
  * caller degrades the same way.
  *
- * `getJson` returns null for a non-2xx without saying what the body held, and
- * for this API the body is where the useful part of a failure lives. So the
- * fetch is done here and the envelope is read whatever the status was.
+ * `getJson` drops the body on a non-2xx by default, and for this API the body
+ * is where the useful part of a failure lives: a 401 carries `error_code: 1001`
+ * and a 403 carries `1006`, which are "the key was refused" and "this plan does
+ * not carry this endpoint". So `keepErrorBody` is passed and the envelope is
+ * read whatever the status was.
  */
 export async function cmcGet<T>(
   path: string,
@@ -231,6 +233,7 @@ export async function cmcGet<T>(
     revalidate: opts.revalidate ?? 1800,
     timeout: opts.timeout ?? 20_000,
     headers: { "X-CMC_PRO_API_KEY": key },
+    keepErrorBody: true,
   });
 
   if (!body || !body.status) {
@@ -276,6 +279,7 @@ export async function cmcGetFree<T>(
   const body = await getJson<CmcEnvelope<T>>(`${KEYLESS_BASE}${path}${query ? `?${query}` : ""}`, {
     revalidate: opts.revalidate ?? 1800,
     timeout: opts.timeout ?? 20_000,
+    keepErrorBody: true,
   });
 
   const code = body?.status ? String(body.status.error_code ?? "0") : "x";
@@ -343,6 +347,7 @@ export async function cmcRaw<T>(
     revalidate: opts.revalidate ?? 3600,
     timeout: opts.timeout ?? 20_000,
     headers: { "X-CMC_PRO_API_KEY": key },
+    keepErrorBody: true,
   });
 
   if (envelope?.status) {

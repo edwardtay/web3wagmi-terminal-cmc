@@ -14,11 +14,11 @@ import { percentile, volSeries, type VolSlice } from "@/lib/liqSeries";
 // CoinGecko, DefiLlama and the exchange APIs each give one number and no way to
 // know what it excludes.
 //
-// The reading is not the level, it is the difference between the slices.
-// Derivatives came in at 1.04x while spot was 6.18x, which says the inflation
-// lives on spot order books rather than in perps. A single "wash trading is
-// high" number says nothing; the spread between two slices of the same market,
-// measured the same way by the same vendor on the same day, says where.
+// What the panel reads off is the spread between the slices. Derivatives came
+// in at 1.04x while spot was 6.18x, which locates the inflation on spot order
+// books. A single "wash trading is high" number says nothing useful; the gap
+// between two slices of the same market, measured the same way by the same
+// vendor on the same day, says where it sits.
 
 // Zero credits.
 //

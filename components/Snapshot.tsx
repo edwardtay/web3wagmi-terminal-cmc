@@ -64,14 +64,38 @@ function FngGauge({ value, yesterday, lastWeek }: { value: number; yesterday?: n
   const [nx, ny] = at(value, r - 16);
   const zone = fngZone(value);
 
-  const tick = (v: number | null | undefined, key: string, label: string) => {
+  // The two marks on the arc are where this reading stood before, and they are
+  // useless without saying which is which. A `title` element is not an answer:
+  // hover does not exist on a phone, which is the same reason `InfoHint` is a
+  // button rather than a tooltip. So each one carries its own label on the dial.
+  const near = yesterday != null && lastWeek != null && Math.abs(yesterday - lastWeek) < 6;
+
+  const tick = (v: number | null | undefined, key: string, label: string, push: boolean) => {
     if (v == null || !Number.isFinite(v)) return null;
     const [x1, y1] = at(v, r - 9);
     const [x2, y2] = at(v, r + 7);
+    // Inside the arc when the two readings are close, so the labels do not print
+    // on top of each other. A quiet week puts them within a point or two.
+    // Inward rather than further out: at the top of the sweep an outer label is
+    // already 11px from the edge of the viewBox and another 11 would clip it.
+    const [lx, ly] = at(v, push ? r - 22 : r + 15);
+    // Anchored away from the edge at the ends of the sweep, where a centred
+    // label would run outside the viewBox and be clipped.
+    const anchor = lx < 16 ? "start" : lx > W - 16 ? "end" : "middle";
     return (
-      <line key={key} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--text3)" strokeWidth="1.5">
-        <title>{`${label}: ${v}`}</title>
-      </line>
+      <g key={key}>
+        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--text3)" strokeWidth="1.5" />
+        <text
+          x={lx}
+          y={ly}
+          textAnchor={anchor}
+          dominantBaseline="middle"
+          className="font-mono"
+          style={{ fontSize: 8, fill: "var(--text3)" }}
+        >
+          {label} {v}
+        </text>
+      </g>
     );
   };
 
@@ -89,8 +113,8 @@ function FngGauge({ value, yesterday, lastWeek }: { value: number; yesterday?: n
             strokeLinecap="butt"
           />
         ))}
-        {tick(yesterday, "y", "Yesterday")}
-        {tick(lastWeek, "w", "7 days ago")}
+        {tick(yesterday, "y", "1d", false)}
+        {tick(lastWeek, "w", "7d", near)}
         <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="var(--text)" strokeWidth="2.5" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="4.5" fill="var(--text)" />
         <text x={cx} y={cy - 30} textAnchor="middle" className="font-mono"
@@ -108,7 +132,7 @@ function FngGauge({ value, yesterday, lastWeek }: { value: number; yesterday?: n
       </div>
       {(yesterday != null || lastWeek != null) && (
         <div className="mt-1 font-mono text-[10px] text-[var(--text3)]">
-          ticks: yesterday {yesterday ?? "n/a"}, 7 days ago {lastWeek ?? "n/a"}
+          1d yesterday, 7d a week ago
         </div>
       )}
     </div>
