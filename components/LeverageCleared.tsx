@@ -109,7 +109,13 @@ export function LeverageCleared() {
                     num
                     hint="Share of reported open interest sitting on pairs CoinMarketCap does not stand behind."
                   />
-                  <Th label="Pairs" sortKey="cleanPairs" sort={sort} num />
+                  <Th
+                    label="Pairs read"
+                    sortKey="cleanPairs"
+                    sort={sort}
+                    num
+                    hint="Vouched-for pairs, against the pairs returned, against the pairs the coin has. The feed pages at 100 sorted by 24h volume, so the denominator is the top 100 rather than the whole book. For BTC the unread tail held 4.1% more open interest when this was measured."
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -134,6 +140,9 @@ export function LeverageCleared() {
                     </td>
                     <td className="num text-[var(--text3)]">
                       {r.cleanPairs} of {r.cleanPairs + r.flaggedPairs}
+                      {r.pairsTotal != null && r.pairsTotal > r.cleanPairs + r.flaggedPairs && (
+                        <span> of {r.pairsTotal}</span>
+                      )}
                     </td>
                   </tr>
                 ))}

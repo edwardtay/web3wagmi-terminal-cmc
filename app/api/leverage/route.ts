@@ -55,6 +55,21 @@ export interface LeverageRow {
   flaggedOpenInterest: number;
   cleanPairs: number;
   flaggedPairs: number;
+  /**
+   * Pairs this coin has, against the 100 the endpoint returns.
+   *
+   * The feed caps a page at 100 and sorts by 24h volume, so the denominator
+   * below is the top 100 pairs rather than the whole book. Measured 2026-09-20:
+   * BTC has 195 pairs and the unread tail held 4.1% more clean open interest,
+   * ADA has 141 and held 1.7% more.
+   *
+   * Paging is supported and is not affordable. Nine coins past 100 pairs is up
+   * to nine more calls a refresh, which would roughly double this route and put
+   * the desk over the free tier's 15,000 a month. So the shortfall is reported
+   * instead of hidden, because a Pairs cell reading "46 of 98" looks like the
+   * whole book when the book is 195.
+   */
+  pairsTotal: number | null;
   /** Liquidated as a share of vouched-for open interest, 0 to 1. */
   clearedFraction: number | null;
   /** The same against the unfiltered sum, so the gap is visible. */
@@ -136,6 +151,7 @@ export async function GET() {
         flaggedOpenInterest: 0,
         cleanPairs: 0,
         flaggedPairs: 0,
+        pairsTotal: null,
         clearedFraction: null,
         clearedFractionUnfiltered: null,
         topVenues: [],
@@ -155,6 +171,7 @@ export async function GET() {
       flaggedOpenInterest: flagged,
       cleanPairs,
       flaggedPairs,
+      pairsTotal: oi.num_market_pairs ?? null,
       clearedFraction: clean > 0 ? liquidated / clean : null,
       clearedFractionUnfiltered: clean + flagged > 0 ? liquidated / (clean + flagged) : null,
       topVenues: byVenue.slice(0, 5),

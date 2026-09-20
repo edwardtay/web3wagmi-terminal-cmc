@@ -116,7 +116,10 @@ export default function MethodologyPage() {
             <span className="font-mono"> outlier_detected</span> or an exclusion, and those carried
             about half the reported open interest across the majors when this was built. The
             unfiltered ratio is published beside it, and for Bitcoin the two differ by roughly two
-            and a half times.
+            and a half times. The denominator covers the top 100 market pairs by 24 hour volume,
+            which is one page of the feed: Bitcoin has 195 and the unread tail held 4.1% more open
+            interest when this was measured. The table states the pairs read against the pairs the
+            coin has, so the shortfall is visible rather than assumed away.
           </Row>
           <Row term="Pool turnover and FDV to liquidity">
             Turnover is 24 hour pool volume divided by pool liquidity. FDV to liquidity is fully

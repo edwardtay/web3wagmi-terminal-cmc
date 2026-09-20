@@ -598,11 +598,11 @@ export function keyInfo(opts: CmcOptions = {}) {
  * is the inverse Herfindahl of liquidation value: near 1 means one exchange's
  * book broke, near 9 means the market repriced.
  *
- * `score` rescales the Herfindahl so that 0 is perfectly even across the venues
- * reporting and 100 is all of it on one. It is a presentation of the same
- * number, and the panel shows the effective count beside it rather than leading
- * with the score alone, because a 0 to 100 reading with no units invites being
- * read as a percentage.
+ * `score` rescales the Herfindahl so that 0 is perfectly even across the whole
+ * venue set and 100 is all of it on one. It is a monotone presentation of the
+ * same number, and the panel shows the effective count beside it rather than
+ * leading with the score alone, because a 0 to 100 reading with no units
+ * invites being read as a percentage.
  *
  * Per house rule, this is ranked against its own history rather than shown as a
  * level, and that history comes from `data/liquidations/`.
@@ -619,7 +619,23 @@ export function concentration(values: number[]): {
 
   const shares = vs.map((v) => v / total);
   const hhi = shares.reduce((s, x) => s + x * x, 0);
-  const n = vs.length;
+
+  // The universe, including venues that printed nothing this window.
+  //
+  // This used to be vs.length, the count that printed, and that made the score
+  // depend on how many venues happened to be quiet rather than only on how the
+  // selling was distributed. Two consequences, both real.
+  //
+  // It stopped being monotone: [80,20] scored 36 while [80,20,1,1,1,1,1,1,1],
+  // a materially less concentrated market, scored 54. And because liqSeries
+  // feeds these scores into the series that /api/forced percentile-ranks, a
+  // window where two venues were quiet was being ranked against one where all
+  // nine printed, on a different scale.
+  //
+  // A zero contributes nothing to the Herfindahl either way, so only the
+  // rescale moves. vs.length >= 2 is already guaranteed above and values.length
+  // is at least that, so the denominator cannot vanish.
+  const n = values.length;
 
   return {
     total,
