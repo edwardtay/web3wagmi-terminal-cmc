@@ -17,6 +17,7 @@ import { FundingBoard } from "@/components/FundingBoard";
 import { OpenInterest } from "@/components/OpenInterest";
 import { Liquidations } from "@/components/Liquidations";
 import { ForcedSelling } from "@/components/ForcedSelling";
+import { LeverageCleared } from "@/components/LeverageCleared";
 import { OptionsDesk } from "@/components/OptionsDesk";
 import { Microstructure } from "@/components/Microstructure";
 import { ExchangeNetflow } from "@/components/ExchangeNetflow";
@@ -150,6 +151,10 @@ export default async function Home({
           {/* Directly under the Binance tape, because the reading is the gap
               between them: that tape is one venue's share of this. */}
           <ForcedSelling />
+
+          {/* The same liquidations against the open interest standing behind
+              them, which is what turns a dollar figure into damage. */}
+          <LeverageCleared />
         </div>
 
         {/* ---- On-chain ---- */}

@@ -51,14 +51,14 @@ export const CREDITS_PER_CALL = 1;
  * access ends when submissions close on 30 September and judging runs to 16
  * October. A desk tuned to Startup goes dark in the fortnight it is scored in.
  *
- * `scripts/cmc-sample.mjs` already spends 5,760 of the 15,000 at its fifteen
- * minute cadence, so the routes share what is left.
+ * `scripts/cmc-sample.mjs` already spends 2,880 of the 15,000 at its thirty
+ * minute cadence, so the routes share the 12,120 that are left.
  */
 export const BUDGET = {
   /** The free tier's monthly allowance, which is what everything is sized for. */
   basicMonthlyCredits: 15_000,
-  /** What the committed sampler spends: two calls every fifteen minutes. */
-  samplerMonthlyCredits: 5_760,
+  /** What the committed sampler spends: two calls every thirty minutes. */
+  samplerMonthlyCredits: 2_880,
   /** Credits a month at a given refresh window. */
   monthly(revalidateSeconds: number, callsPerRefresh: number): number {
     return Math.round(((30 * 24 * 3600) / revalidateSeconds) * callsPerRefresh * CREDITS_PER_CALL);
@@ -137,6 +137,8 @@ export const FAILURE_TEXT: Record<CmcFailure, string> = {
  */
 export interface CallRecord {
   path: string;
+  /** The query string, so nine calls to one path are nine records rather than one. */
+  query: string;
   status: number;
   elapsedMs: number;
   credits: number;
@@ -144,16 +146,28 @@ export interface CallRecord {
   failure: CmcFailure | null;
 }
 
+// Keyed by path and query together. Keying on the path alone collapsed the nine
+// per-coin open interest reads into a single record, which made the credit
+// total on the judge page read 2 where 10 were spent.
 const ledger = new Map<string, CallRecord>();
 
-/** Every path called since this process started, most recent first. */
+/** Every call made since this process started, most recent first. */
 export function callLedger(): CallRecord[] {
   return [...ledger.values()].sort((a, b) => b.at.localeCompare(a.at));
 }
 
-interface CmcOptions {
+export interface CmcOptions {
   revalidate?: number;
   timeout?: number;
+  /**
+   * A route's own list of the calls it made.
+   *
+   * The ledger above is process-global and cumulative, which is right for the
+   * judge page and wrong for a coverage counter: `/api/forced` would report the
+   * reads `/api/leverage` had made in the same process and claim a coverage it
+   * never had. A route passes its own array and counts that.
+   */
+  collect?: CallRecord[];
 }
 
 /**
@@ -172,32 +186,40 @@ export async function cmcGet<T>(
   const key = process.env.CMC_API_KEY;
   const at = new Date().toISOString();
 
-  if (!key) {
-    ledger.set(path, { path, status: 0, elapsedMs: 0, credits: 0, at, failure: "no-key" });
-    return null;
-  }
-
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== "") qs.set(k, String(v));
   }
-  const url = `${BASE}${path}${qs.size ? `?${qs}` : ""}`;
+  const query = qs.toString();
 
-  const body = await getJson<CmcEnvelope<T>>(url, {
+  const note = (rec: CallRecord) => {
+    ledger.set(`${path}?${query}`, rec);
+    opts.collect?.push(rec);
+    return rec;
+  };
+
+  if (!key) {
+    note({ path, query, status: 0, elapsedMs: 0, credits: 0, at, failure: "no-key" });
+    return null;
+  }
+
+  const body = await getJson<CmcEnvelope<T>>(`${BASE}${path}${query ? `?${query}` : ""}`, {
     revalidate: opts.revalidate ?? 1800,
     timeout: opts.timeout ?? 20_000,
     headers: { "X-CMC_PRO_API_KEY": key },
   });
 
   if (!body || !body.status) {
-    ledger.set(path, { path, status: 0, elapsedMs: 0, credits: 0, at, failure: "upstream" });
+    note({ path, query, status: 0, elapsedMs: 0, credits: 0, at, failure: "upstream" });
     return null;
   }
 
+  // A string on v3 and v5, a number on v1, so it is coerced before comparison.
   const code = String(body.status.error_code ?? "0");
   const failure = code === "0" ? null : (FAILURE_BY_CODE[code] ?? "upstream");
-  ledger.set(path, {
+  note({
     path,
+    query,
     status: failure ? 0 : 200,
     elapsedMs: body.status.elapsed ?? 0,
     credits: body.status.credit_count ?? 0,
@@ -246,12 +268,8 @@ export interface CoinLiquidations {
 }
 
 /** Market-wide totals over the three rolling windows. 1 credit. */
-export function marketLiquidations(revalidate = 1800) {
-  return cmcGet<{ quotes: LiquidationQuote[] }>(
-    "/v5/derivatives/liquidations/quotes/latest",
-    {},
-    { revalidate }
-  );
+export function marketLiquidations(opts: CmcOptions = {}) {
+  return cmcGet<{ quotes: LiquidationQuote[] }>("/v5/derivatives/liquidations/quotes/latest", {}, opts);
 }
 
 /**
@@ -263,11 +281,11 @@ export function marketLiquidations(revalidate = 1800) {
  * everything this API can see, which is the honest framing and the one the panel
  * uses.
  */
-export function venueLiquidations(revalidate = 1800) {
+export function venueLiquidations(opts: CmcOptions = {}) {
   return cmcGet<{ exchanges: VenueLiquidations[]; total_size: number; has_more: boolean }>(
     "/v5/derivatives/liquidations/exchange/list/latest",
     {},
-    { revalidate }
+    opts
   );
 }
 
@@ -278,11 +296,11 @@ export function venueLiquidations(revalidate = 1800) {
  * "Invalid parameter", so paging is the only way down the tail, and the first
  * page holds every coin that matters for a cascade.
  */
-export function coinLiquidations(start = 1, revalidate = 1800) {
+export function coinLiquidations(start = 1, opts: CmcOptions = {}) {
   return cmcGet<{ cryptocurrencies: CoinLiquidations[]; total_size: number; has_more: boolean }>(
     "/v5/derivatives/liquidations/cryptocurrency/list/latest",
     { start },
-    { revalidate }
+    opts
   );
 }
 
@@ -309,11 +327,11 @@ export interface MarketPair {
  * price. The endpoint answers 400 without one of `crypto_id`, `crypto_symbol`
  * or `crypto_slug`, so there is no way to sweep every coin at once.
  */
-export function coinOpenInterest(symbol: string, revalidate = 1800) {
+export function coinOpenInterest(symbol: string, opts: CmcOptions = {}) {
   return cmcGet<{ crypto_id: number; symbol: string; num_market_pairs: number; market_pairs: MarketPair[] }>(
     "/v5/cryptocurrency/derivatives/market-pairs/list/latest",
     { crypto_symbol: symbol },
-    { revalidate }
+    opts
   );
 }
 
@@ -321,11 +339,11 @@ export function coinOpenInterest(symbol: string, revalidate = 1800) {
  * Open interest for one venue's pairs. 1 credit. Needs `exchange_id` or
  * `exchange_slug`, and 400s without one.
  */
-export function venueOpenInterest(exchangeId: number, revalidate = 1800) {
+export function venueOpenInterest(exchangeId: number, opts: CmcOptions = {}) {
   return cmcGet<{ exchange_id: number; exchange_name: string; market_pairs: MarketPair[] }>(
     "/v5/exchange/derivatives/market-pairs/list/latest",
     { exchange_id: exchangeId },
-    { revalidate }
+    opts
   );
 }
 
@@ -394,16 +412,16 @@ export function cleanOpenInterest(pairs: MarketPair[]): {
  * publishers that answer the same question. Showing both with their publishers
  * named is the honest presentation.
  */
-export function fearAndGreed(revalidate = 3600) {
+export function fearAndGreed(opts: CmcOptions = {}) {
   return cmcGet<{ value: number; update_time: string; value_classification: string }>(
     "/v3/fear-and-greed/latest",
     {},
-    { revalidate }
+    opts
   );
 }
 
 /** The Altcoin Season Index, with its own yearly high and low for context. 1 credit. */
-export function altcoinSeason(revalidate = 3600) {
+export function altcoinSeason(opts: CmcOptions = {}) {
   return cmcGet<{
     altcoin_index: number;
     altcoin_marketcap: number;
@@ -412,11 +430,11 @@ export function altcoinSeason(revalidate = 3600) {
     yearly_high_date: string;
     yearly_low: number;
     yearly_low_date: string;
-  }>("/v1/altcoin-season-index/latest", {}, { revalidate });
+  }>("/v1/altcoin-season-index/latest", {}, opts);
 }
 
 /** The live credit ledger. Free, and the one number a judge can check for themselves. */
-export function keyInfo(revalidate = 300) {
+export function keyInfo(opts: CmcOptions = {}) {
   return cmcGet<{
     plan: { credit_limit_monthly: number; credit_limit_monthly_reset: string; rate_limit_minute: number };
     usage: {
@@ -424,7 +442,7 @@ export function keyInfo(revalidate = 300) {
       current_day: { credits_used: number };
       current_month: { credits_used: number; credits_left: number };
     };
-  }>("/v1/key/info", {}, { revalidate });
+  }>("/v1/key/info", {}, opts);
 }
 
 // ---- concentration -------------------------------------------------------

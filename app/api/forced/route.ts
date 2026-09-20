@@ -2,12 +2,12 @@ import { jsonResponse } from "@/lib/http";
 import {
   BUDGET,
   FAILURE_TEXT,
-  callLedger,
   cmcReady,
   coinLiquidations,
   concentration,
   marketLiquidations,
   venueLiquidations,
+  type CallRecord,
   type CmcFailure,
 } from "@/lib/cmc";
 import { liqSeries, percentile } from "@/lib/liqSeries";
@@ -30,11 +30,13 @@ import { liqSeries, percentile } from "@/lib/liqSeries";
 
 // Three calls a refresh at 1 credit each.
 //
-// BUDGET.monthly(1200, 3) is 6,480 credits a month, against the 9,240 that
+// BUDGET.monthly(1200, 3) is 6,480 credits a month, against the 12,120 that
 // BUDGET.routeAllowance() leaves once the committed sampler has taken its
-// 5,760 of the free tier's 15,000. That is the whole reason this window is
-// 1200 and not 300: the same three calls at 300 seconds would be 25,920 a
-// month, which is 73% over the entire free allowance on its own.
+// 2,880 of the free tier's 15,000. /api/leverage takes 3,600 of the rest.
+//
+// That is the whole reason this window is 1200 and not 300: the same three
+// calls at 300 seconds would be 25,920 a month, which is 73% over the entire
+// free allowance on its own.
 //
 // Sized for the free Basic tier deliberately. The hackathon's Startup access
 // ends when submissions close on 30 September and judging runs to 16 October,
@@ -152,23 +154,28 @@ function split(quote: Record<string, unknown> | undefined, w: Window): Split {
 export async function GET() {
   if (!cmcReady()) return jsonResponse(empty(FAILURE_TEXT["no-key"]), 60);
 
+  // This route's own calls, not the process-wide ledger. The ledger is
+  // cumulative across every route in the container, so counting it here would
+  // have reported coverage this refresh never achieved.
+  const calls: CallRecord[] = [];
+  const opts = { revalidate, collect: calls };
+
   const [market, venues, coins, series] = await Promise.all([
-    marketLiquidations(revalidate),
-    venueLiquidations(revalidate),
-    coinLiquidations(1, revalidate),
+    marketLiquidations(opts),
+    venueLiquidations(opts),
+    coinLiquidations(1, opts),
     liqSeries(),
   ]);
 
-  const ledger = callLedger();
-  const reads = ledger.length;
-  const readFailures = ledger.filter((c) => c.failure).length;
-  const credits = ledger.reduce((s, c) => s + c.credits, 0);
+  const reads = calls.length;
+  const readFailures = calls.filter((c) => c.failure).length;
+  const credits = calls.reduce((s, c) => s + c.credits, 0);
 
   // The venue split is the only read this panel cannot do without. Everything
   // else degrades to a column rather than to a blank card.
   const exchanges = venues?.exchanges ?? [];
   if (!exchanges.length) {
-    const failure = (ledger.find((c) => c.failure)?.failure ?? "upstream") as CmcFailure;
+    const failure = (calls.find((c) => c.failure)?.failure ?? "upstream") as CmcFailure;
     return jsonResponse({ ...empty(FAILURE_TEXT[failure]), coverage: { venues: 0, coinsReturned: 0, coinsTotal: null, reads, readFailures } }, 60);
   }
 

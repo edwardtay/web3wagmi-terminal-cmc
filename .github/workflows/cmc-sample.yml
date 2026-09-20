@@ -1,7 +1,7 @@
 name: cmc liquidation sample
 
 # Snapshot CoinMarketCap's cross-exchange liquidation feed into the repo every
-# fifteen minutes.
+# thirty minutes.
 #
 # The API has no historical liquidation endpoint, so a percentile can only rank
 # against what has been collected since polling started, and this app has no
@@ -9,15 +9,18 @@ name: cmc liquidation sample
 # restart, and it doubles as the public timestamped record of real API calls the
 # hackathon submission asks for.
 #
-# Two things to know before changing the cadence.
+# The cadence is thirty minutes, and both constraints point at that number.
 #
-# 1. Actions minutes. This is 2,880 runs a month. Public repositories get
-#    unlimited minutes; a private one gets 2,000 a month, so this schedule
-#    overruns a private repo by about 40%. The submission requires a public
-#    repository anyway.
-# 2. Credits. Two calls a run is 5,760 credits a month against the 15,000 that
-#    the free Basic tier allows, so the app's own routes have to fit in the
-#    remaining 9,240. That arithmetic is restated in each route.
+# 1. Actions minutes. This is 1,440 runs a month. Public repositories get
+#    unlimited minutes and a private one gets 2,000, so thirty minutes fits
+#    either and fifteen fits only a public repo.
+# 2. Credits. Two calls a run is 2,880 credits a month against the 15,000 the
+#    free Basic tier allows, leaving 12,120 for the routes. At fifteen minutes
+#    it would be 5,760 and /api/leverage would not fit beside /api/forced.
+#
+# The resolution this gives up costs little. The feed serves rolling 1h, 4h and
+# 24h windows, so the window itself smooths: two samples inside the shortest one
+# is enough to rank it, and a cascade stays in the 1h reading for an hour.
 
 on:
   # The schedule is deliberately absent from this published copy. This
@@ -25,10 +28,10 @@ on:
   # would be destroyed by the next rebuild. The job runs in the private working
   # repository and its output reaches this one through the replay.
   # schedule:
-    # Every 15 minutes. GitHub runs scheduled jobs late under load and drops
+    # Every 30 minutes. GitHub runs scheduled jobs late under load and drops
     # them outright at peak, so the series has gaps by design and anything
     # reading it must rank against the samples it has rather than assume a grid.
-    # - cron: "*/15 * * * *"
+    # - cron: "*/30 * * * *"
   workflow_dispatch:
 
 # Never let two runs append at once. A second run starting while the first is

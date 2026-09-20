@@ -99,6 +99,25 @@ export default function MethodologyPage() {
             Deposits to an unlabelled wallet, and every other chain, are invisible, so read the
             direction rather than the absolute size.
           </Row>
+          <Row term="Venue concentration">
+            The inverse Herfindahl index of liquidation value across the nine derivatives venues
+            CoinMarketCap reports, shown as an effective venue count. Near 1 means one exchange
+            carried nearly all of it; near 9 means the selling was spread evenly. The 0 to 100 score
+            beside it rescales the same index so 0 is perfectly even and 100 is all on one venue. It
+            is ranked against a series this desk collects for itself every thirty minutes, because
+            the feed publishes only rolling windows, and the reading says how many samples it is
+            ranking against. Under thirty samples it declines to rank at all.
+          </Row>
+          <Row term="Leverage cleared">
+            A coin&apos;s 24 hour liquidation value divided by the open interest standing behind it.
+            This ranks by how much of a book went rather than by dollar size, so a mid-cap losing
+            half a percent of its open interest sits above a major losing a tenth. The denominator
+            sums only the market pairs CoinMarketCap vouches for: it marks pairs with
+            <span className="font-mono"> outlier_detected</span> or an exclusion, and those carried
+            about half the reported open interest across the majors when this was built. The
+            unfiltered ratio is published beside it, and for Bitcoin the two differ by roughly two
+            and a half times.
+          </Row>
           <Row term="Pool turnover and FDV to liquidity">
             Turnover is 24 hour pool volume divided by pool liquidity. FDV to liquidity is fully
             diluted value divided by pool liquidity. Both are arithmetic on the pool row and neither

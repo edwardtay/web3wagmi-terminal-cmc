@@ -56,6 +56,7 @@ const SECTIONS: Item[] = [
   { label: "Open interest", hint: "OI levels, regime, positioning", href: "/#oi" },
   { label: "Liquidations", hint: "live force-order tape", href: "/#liquidations" },
   { label: "Forced selling", hint: "liquidations across all nine venues, and how far they spread", href: "/#forced" },
+  { label: "Leverage cleared", hint: "liquidations as a share of the open interest behind them", href: "/#leverage" },
   { label: "Options", hint: "DVOL, term structure, skew, max pain", href: "/#options" },
   { label: "Order book", hint: "depth, imbalance, trade tape", href: "/#microstructure" },
   { label: "Exchange flow", hint: "netflow onto and off exchanges", href: "/#netflow" },
