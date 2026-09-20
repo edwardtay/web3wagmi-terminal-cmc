@@ -5,6 +5,7 @@ import { BarCell, InfoHint, LivePill, Panel, Section, Segmented, TableWrap, Th, 
 import { clockTime, compact, pctPlain, price, usdCompact } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { unitOf, useLiquidations, type LiqEvent } from "@/lib/useLiquidations";
+import type { ForcedPayload } from "@/app/api/forced/route";
 
 type Filter = "all" | "10k" | "100k";
 
@@ -102,6 +103,16 @@ function OnchainLiquidations() {
 export function Liquidations() {
   const liq = useLiquidations();
   const [filter, setFilter] = useState<Filter>("all");
+
+  // The cross-venue figure, so the session card is never blank.
+  //
+  // This tape is a browser websocket on one venue's force orders with a ring
+  // buffer, so it starts at zero on every page load and stays there until
+  // something liquidates on Binance. A quiet half hour therefore rendered a
+  // card that said nothing at all, which is the blank card this codebase calls
+  // a defect. What was actually happening in that half hour is one fetch away.
+  const { data: forced } = useApi<ForcedPayload>("/api/forced", 300);
+  const wide = forced?.ok ? forced.windows?.["1h"] : null;
 
   // sessionStart comes from Date.now() in the hook, so it differs between the
   // server render and the client. Hold the label back until after mount.
@@ -222,9 +233,31 @@ export function Liquidations() {
           title="This session"
         >
           {waiting ? (
-            <div className="py-8 text-center font-mono text-[11px] leading-relaxed text-[var(--text3)]">
-              Waiting for the first print.
+            <div className="py-6 text-center font-mono text-[11px] leading-relaxed text-[var(--text3)]">
+              Nothing has printed on Binance since this page loaded.
               <div className="mt-1">Totals start at zero on every page load.</div>
+
+              {wide && wide.total > 0 && (
+                <div className="mt-5 border-t border-[var(--border)] pt-4">
+                  <div className="font-mono text-xl font-bold tabular-nums text-[var(--text)]">
+                    {usdCompact(wide.total)}
+                  </div>
+                  <div className="mt-1">
+                    liquidated across {forced?.coverage.venues} venues in the last hour
+                  </div>
+                  {wide.streamedShare != null && (
+                    <div className="mt-2">
+                      Binance carried {pctPlain(100 * wide.streamedShare)} of it.
+                    </div>
+                  )}
+                  <a
+                    href="#forced"
+                    className="mt-3 inline-block underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--text)]"
+                  >
+                    the full venue split
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
