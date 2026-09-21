@@ -114,7 +114,7 @@ export function LeverageCleared() {
                     sortKey="cleanPairs"
                     sort={sort}
                     num
-                    hint="Vouched-for pairs, against the pairs returned, against the pairs the coin has. The feed pages at 100 sorted by 24h volume, so the denominator is the top 100 rather than the whole book. For BTC the unread tail held 4.1% more open interest when this was measured."
+                    hint="Three counts: pairs CoinMarketCap vouches for, pairs on this page that carry any open interest, and pairs the coin has in total. The feed pages at 100 sorted by 24h volume, so the denominator covers the top 100 rather than the whole book. For BTC the unread tail held 4.1% more open interest when this was measured."
                   />
                 </tr>
               </thead>

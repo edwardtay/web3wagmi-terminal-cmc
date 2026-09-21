@@ -31,9 +31,9 @@ import { MATRIX } from "@/lib/symbols";
 // One call per coin plus one for the liquidation board.
 //
 // MATRIX is nine symbols, so ten calls a refresh. BUDGET.monthly(7200, 10) is
-// 3,600 credits a month. With /api/forced at 6,480 and the sampler at 2,880
-// that is 12,960 of the free tier's 15,000, leaving about 2,000 for /status
-// probes and the judge page.
+// 3,600 credits a month. With /api/forced at 6,480, the sampler at 2,880 and
+// the judge page at 720 that is 13,680 of the free tier's 15,000, leaving about
+// 1,300 for /status probes.
 //
 // 7200 rather than 1200 because open interest is a stock rather than a flow:
 // it moves over hours, and the numerator beside it already refreshes every
@@ -128,8 +128,8 @@ export async function GET() {
     });
   }
 
-  // Paced rather than fired at once. The plan allows 50 requests a minute and
-  // this is ten, so the limit is not the constraint; the reason is the one the
+  // Paced rather than fired at once. Ten calls is inside any of this API's rate
+  // limits, so the limit is not the constraint; the reason is the one the
   // flow desk learned the hard way, that a burst against a metered API is what
   // turns a working read into a throttled one, and there is nothing to gain
   // from arriving two seconds sooner on a two hour cache.

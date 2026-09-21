@@ -74,7 +74,14 @@ export const CREDITS_PER_CALL = 1;
 export const BUDGET = {
   /** The free tier's monthly allowance, which is what everything is sized for. */
   basicMonthlyCredits: 15_000,
-  /** What the committed sampler spends: two calls every thirty minutes. */
+  /**
+   * What the committed sampler spends at most: two calls every thirty minutes.
+   *
+   * A ceiling rather than a measurement. GitHub delivers scheduled workflows
+   * late and drops them under load, and the observed rate on this repository
+   * has been closer to one run every two hours, so the real spend is a fraction
+   * of this. Budgeting against the ceiling is the safe direction to be wrong in.
+   */
   samplerMonthlyCredits: 2_880,
   /** Credits a month at a given refresh window. */
   monthly(revalidateSeconds: number, callsPerRefresh: number): number {
@@ -175,7 +182,14 @@ export interface CallRecord {
 // total on the judge page read 2 where 10 were spent.
 const ledger = new Map<string, CallRecord>();
 
-/** Every call made since this process started, most recent first. */
+/**
+ * The most recent call against each distinct path and query, newest first.
+ *
+ * A Map keyed on path and query, so a route that reads the same endpoint every
+ * twenty minutes leaves one row rather than seventy. That keeps it bounded
+ * without a cap, and it is why the judge page calls this the last call per
+ * endpoint rather than a request log.
+ */
 export function callLedger(): CallRecord[] {
   return [...ledger.values()].sort((a, b) => b.at.localeCompare(a.at));
 }

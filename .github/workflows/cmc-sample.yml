@@ -14,9 +14,11 @@ name: cmc liquidation sample
 # 1. Actions minutes. This is 1,440 runs a month. Public repositories get
 #    unlimited minutes and a private one gets 2,000, so thirty minutes fits
 #    either and fifteen fits only a public repo.
-# 2. Credits. Two calls a run is 2,880 credits a month against the 15,000 the
-#    free Basic tier allows, leaving 12,120 for the routes. At fifteen minutes
-#    it would be 5,760 and /api/leverage would not fit beside /api/forced.
+# 2. Credits. Two calls a run is at most 2,880 credits a month against the
+#    15,000 the free Basic tier allows, leaving 12,120 for the routes. At
+#    fifteen minutes it would be 5,760 and /api/leverage would not fit beside
+#    /api/forced. In practice GitHub delivers far fewer runs than the cron asks
+#    for, so 2,880 is a ceiling and the real spend has been a fraction of it.
 #
 # The resolution this gives up costs little. The feed serves rolling 1h, 4h and
 # 24h windows, so the window itself smooths: two samples inside the shortest one
@@ -28,9 +30,21 @@ on:
   # would be destroyed by the next rebuild. The job runs in the private working
   # repository and its output reaches this one through the replay.
   # schedule:
-    # Every 30 minutes. GitHub runs scheduled jobs late under load and drops
-    # them outright at peak, so the series has gaps by design and anything
-    # reading it must rank against the samples it has rather than assume a grid.
+    # Asks for every 30 minutes and does not get it.
+    #
+    # Observed over the first night: 21:44, 23:53, 03:42. Roughly one run every
+    # two hours. GitHub deprioritises scheduled workflows under load and drops
+    # them outright at peak, and a low-traffic private repository is first in
+    # the queue to be dropped.
+    #
+    # The schedule stays at 30 minutes because asking more often is how you get
+    # more of them, and the cost of a dropped run is nothing. But no reader of
+    # this file should take the cron as the cadence: the series has gaps by
+    # design and everything downstream ranks against the samples it has rather
+    # than assuming a grid. `percentile` refuses to rank under thirty of them.
+    #
+    # It also means the credit figure below is a ceiling rather than a spend.
+    # - cron: "*/30 * * * *"
     # - cron: "*/30 * * * *"
   workflow_dispatch:
 

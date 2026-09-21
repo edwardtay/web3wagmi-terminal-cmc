@@ -38,6 +38,20 @@ export const metadata: Metadata = {
 // of the budget in the repository.
 export const revalidate = 3600;
 
+// Rendered per request, which for this page is the whole point.
+//
+// With `revalidate` alone Next prerenders this at build time, so the call
+// "made while this page rendered" was made during `npm run build` and the
+// ledger below showed whatever the builder had done. An evidence page frozen
+// at build time is evidence of nothing, and it is not detectable by looking at
+// it: the numbers are real, they are just old.
+//
+// This costs no extra credits. The fetch inside `cmcRaw` still carries
+// `revalidate`, so CoinMarketCap is called once an hour however many readers
+// arrive. Only the render is per request, which is what lets `callLedger()`
+// report the container's actual state.
+export const dynamic = "force-dynamic";
+
 /** Every endpoint this terminal calls, with the cost measured rather than assumed. */
 const ENDPOINTS: {
   path: string;
@@ -98,9 +112,10 @@ export default async function CmcPage() {
 
   const routeTotal = ENDPOINTS.reduce((s, e) => s + e.monthly, 0);
 
-  // Every call this container has made since it booted, newest first. The panels
-  // populate it as they refresh, so it is a record of the desk running rather
-  // than of this page rendering.
+  // The last call against each endpoint this container has made, newest first.
+  // The panels populate it as they refresh, so it is a record of the desk
+  // running rather than of this page rendering. Keyed by path and query, so a
+  // route reading the same endpoint every twenty minutes leaves one row.
   const ledger = callLedger().slice(0, 12);
 
   return (
@@ -207,7 +222,18 @@ export default async function CmcPage() {
               <div>
                 <Row term="Plan">
                   {key.plan.credit_limit_monthly.toLocaleString("en-US")} credits a month,{" "}
-                  {key.plan.rate_limit_minute} requests a minute. This is the free Basic tier.
+                  {key.plan.rate_limit_minute} requests a minute.{" "}
+                  {key.plan.credit_limit_monthly <= BUDGET.basicMonthlyCredits ? (
+                    <>This is the free Basic tier, which is what every refresh window here is sized for.</>
+                  ) : (
+                    <>
+                      That is above the free Basic tier&apos;s{" "}
+                      {BUDGET.basicMonthlyCredits.toLocaleString("en-US")}. The windows here are
+                      sized for Basic anyway, because the hackathon&apos;s Startup access ends when
+                      submissions close on 30 September while judging runs to 16 October, and a desk
+                      tuned to the event tier goes dark in the fortnight it is scored in.
+                    </>
+                  )}
                 </Row>
                 <Row term="Used this month">
                   {key.usage.current_month.credits_used.toLocaleString("en-US")} credits,{" "}
@@ -228,8 +254,8 @@ export default async function CmcPage() {
       </div>
 
       <div className="mt-4">
-        <Section title="Calls this container has made" id="calls">
-          <Panel title="Newest first, since the server booted">
+        <Section title="The last call against each endpoint" id="calls">
+          <Panel title="Newest first, from this container since it booted">
             {ledger.length ? (
               <div className="thin-scroll overflow-x-auto">
                 <table className="tbl">
@@ -312,10 +338,10 @@ export default async function CmcPage() {
 
             <div className="mt-4 space-y-2 text-[12px] leading-relaxed text-[var(--text2)]">
               <p>
-                Sized for the free Basic tier deliberately. The hackathon grants Startup access for
-                the event window, and that access ends when submissions close on 30 September while
-                judging runs to 16 October. A desk tuned to the event tier goes dark in the
-                fortnight it is scored in.
+                Sized for the free Basic tier deliberately, whatever plan the key above is on. The
+                hackathon grants Startup access for the event window, and that access ends when
+                submissions close on 30 September while judging runs to 16 October. A desk tuned to
+                the event tier goes dark in the fortnight it is scored in.
               </p>
               <p>
                 Traffic does not enter this arithmetic. A route with a{" "}
