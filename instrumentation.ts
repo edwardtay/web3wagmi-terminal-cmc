@@ -23,6 +23,10 @@ export async function register() {
   void (async () => {
     // The server is not listening the instant this hook runs.
     await new Promise((r) => setTimeout(r, 3000));
+    // Derivs is in the list because it reads the 2.5MB Binance ticker plus
+    // Bybit, OKX and Hyperliquid, and the open interest panel is high on the
+    // page, so the first reader after a deploy was paying for all of it.
+    //
     // Order matters twice over. Unlocks is warmed before signals because
     // signals reads it, and a cold unlocks parse is the slowest thing in the
     // app. The brief is warmed last because it reads signals, netflow, derivs,
@@ -32,7 +36,7 @@ export async function register() {
     // Without this the first reader after a deploy watches a skeleton for the
     // length of that whole chain while every other panel on the page has
     // already rendered.
-    for (const path of ["/api/netflow", "/api/unlocks", "/api/signals", "/api/brief"]) {
+    for (const path of ["/api/netflow", "/api/unlocks", "/api/derivs", "/api/signals", "/api/brief"]) {
       try {
         await fetch(`${origin}${path}`, {
           cache: "no-store",

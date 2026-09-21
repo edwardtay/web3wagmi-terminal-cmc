@@ -56,10 +56,6 @@
   --neg-soft: rgba(251, 113, 133, 0.14);
   --green: var(--pos);
   --red: var(--neg);
-  --venue-1: #b45309;
-  --venue-2: #2563eb;
-  --venue-3: #64748b;
-  --venue-4: #0d9488;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 18px -6px rgba(0, 0, 0, 0.65);
@@ -94,6 +90,16 @@
   --btc: #d97706;
   --eth: #4c63c9;
   --violet: #7c3aed;
+  /* Venue hues for the open interest split, light theme.
+     These existed only inside the dark block, so on the default theme
+     `var(--venue-1)` resolved to nothing, `background` was invalid and every
+     segment of the bar painted transparent. The column showed its track and no
+     data, which reads as a panel still loading rather than as a defect, and it
+     was reported as one. */
+  --venue-1: #b45309;
+  --venue-2: #2563eb;
+  --venue-3: #64748b;
+  --venue-4: #0d9488;
   --cyan: #0284c7;
 
   --pos: #05803e;

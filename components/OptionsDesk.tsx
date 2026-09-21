@@ -414,18 +414,6 @@ export function OptionsDesk() {
                   : `${label(ref.code)}, vol points, ${ref.skew < 0 ? "puts bid" : "calls bid"} (approximation)`
               }
             />
-            <Stat
-              k="term shape"
-              v={desk.shape ?? NA}
-              color={shapeColor}
-              sub={
-                desk.shape === "backwardation"
-                  ? "front vol above back vol: the market is paying up for immediate protection"
-                  : desk.shape === "contango"
-                    ? "front vol below back vol: the calm, carry-friendly default"
-                    : "front and back vol within half a point"
-              }
-            />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-2">
             <div className="rounded-lg border border-[var(--border)] bg-[var(--bg2)] p-2.5">
@@ -452,7 +440,14 @@ export function OptionsDesk() {
         {/* -------------------------------------------------- term structure -- */}
         <Panel
           title="IV term structure"
-          hint="At-the-money implied volatility, annualised, plotted by days to expiry. The violet dots are quarterly expiries, which carry most of the open interest and so anchor the curve."
+          hint={
+            "At-the-money implied volatility, annualised, plotted by days to expiry. The violet dots are quarterly expiries, which carry most of the open interest and so anchor the curve. " +
+            (desk.shape === "backwardation"
+              ? "Backwardation is front vol above back vol: the market is paying up for immediate protection."
+              : desk.shape === "contango"
+                ? "Contango is front vol below back vol, the calm, carry-friendly default."
+                : "Flat means front and back vol sit within half a point.")
+          }
           className="lg:col-span-1"
           right={
             <span className="pill whitespace-nowrap" style={{ color: shapeColor }}>
@@ -461,7 +456,6 @@ export function OptionsDesk() {
           }
         >
           <TermCurve rows={rows} />
-          
         </Panel>
 
         {/* ---------------------------------------------------- max pain x2 -- */}

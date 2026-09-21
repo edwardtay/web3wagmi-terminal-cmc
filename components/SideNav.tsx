@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Desktop-only section rail. The page is long enough that a reader loses their
 // place, so the rail tracks which section is on screen. Below xl it is hidden
@@ -143,8 +143,44 @@ export function useActiveSection(): string {
 }
 
 function DesktopRail({ active }: { active: string }) {
+  const railRef = useRef<HTMLElement>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
+
+  // Keep the marked entry in view, scrolling the rail and never the page.
+  //
+  // The mobile chip strip in TerminalHeader has done this along its own axis
+  // since it was built; the rail was the half that never got it. Twenty-seven
+  // entries do not fit in a viewport, so on a long page the highlight moved to
+  // an item the reader could not see and the rail stopped answering the one
+  // question it exists for, which is where am I.
+  //
+  // Unlike the strip, this only moves when it has to. The strip centres on
+  // every change because a horizontal bar shows five chips and the active one
+  // is usually near an edge. A vertical rail shows twenty, so re-centring each
+  // time a neighbouring section scrolled past would slide the whole list under
+  // the reader for no gain. Out of view, or close to an edge, it centres. In
+  // comfortable view, it stays still.
+  useEffect(() => {
+    const rail = railRef.current;
+    const el = activeRef.current;
+    if (!rail || !el) return;
+
+    const r = rail.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    // A row's worth of margin, so an entry sitting right on the edge counts as
+    // out of view. Landing flush against the top of the rail reads as clipped.
+    const margin = 44;
+    if (e.top >= r.top + margin && e.bottom <= r.bottom - margin) return;
+
+    rail.scrollTo({
+      top: rail.scrollTop + (e.top - r.top) - (r.height - e.height) / 2,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }, [active]);
+
   return (
     <nav
+      ref={railRef}
       aria-label="Terminal sections"
       className="thin-scroll sticky top-[140px] hidden max-h-[calc(100vh-160px)] w-44 shrink-0 overflow-y-auto pb-6 xl:block"
     >
@@ -166,6 +202,7 @@ function DesktopRail({ active }: { active: string }) {
                 <li key={i.id}>
                   <a
                     href={`#${i.id}`}
+                    ref={on ? activeRef : undefined}
                     aria-current={on ? "true" : undefined}
                     className={`block rounded-md border-l-2 px-2 py-1 text-[12px] font-semibold transition-colors ${
                       on

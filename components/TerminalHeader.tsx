@@ -25,7 +25,10 @@ export function TerminalHeader() {
     const strip = stripRef.current;
     if (!chip || !strip) return;
     const left = chip.offsetLeft - strip.clientWidth / 2 + chip.clientWidth / 2;
-    strip.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    strip.scrollTo({
+      left: Math.max(0, left),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
   }, [active]);
 
   return (
