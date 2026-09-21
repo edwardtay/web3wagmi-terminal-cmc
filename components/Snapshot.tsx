@@ -35,6 +35,10 @@ function fngZone(v: number): { label: string; color: string } {
  * they were two numbers a reader had to hold in their head to compare; on the
  * dial the comparison is the distance between the needle and the tick, which is
  * the comparison being asked for.
+ *
+ * Each tick carries its own label, so there is no legend under the dial. There
+ * was one, reading "1d yesterday, 7d a week ago", and it restated what the
+ * labels already say.
  */
 const FNG_ZONES: { to: number; color: string; label: string }[] = [
   { to: 25, color: "var(--neg)", label: "Extreme fear" },
@@ -130,11 +134,6 @@ function FngGauge({ value, yesterday, lastWeek }: { value: number; yesterday?: n
         <span>0 extreme fear</span>
         <span className="ml-auto">100 extreme greed</span>
       </div>
-      {(yesterday != null || lastWeek != null) && (
-        <div className="mt-1 font-mono text-[10px] text-[var(--text3)]">
-          1d yesterday, 7d a week ago
-        </div>
-      )}
     </div>
   );
 }
