@@ -12,9 +12,15 @@ import { concentration } from "./cmc";
 //
 // `scripts/cmc-sample.mjs` writes the series, one file per UTC day under
 // `data/liquidations/`, and the Dockerfile copies the directory into the image.
-// So what a running container holds is frozen at build time. That is stated on
-// the panel rather than hidden: a sample that stops three weeks ago is still a
-// usable reference, and a reader who cannot see the window cannot tell.
+// So the files a running container holds are frozen at build time.
+//
+// On top of that frozen base, the routes add every fresh reading they make to a
+// live tail held in process. A container deployed on 21 September was still
+// ranking against its seven build-time samples on the 24th, while the committed
+// series had grown to twenty six and the routes had read the same feed every
+// twenty minutes in between. The tail costs no credits, because it records reads
+// the routes were making anyway. It is lost on restart, which falls back to the
+// committed base, the state this was in before.
 
 const DIR = join(process.cwd(), "data", "liquidations");
 
@@ -51,6 +57,46 @@ export interface Series {
 
 const EMPTY: Series = { points: [], from: null, to: null };
 
+/**
+ * The shortest gap between two samples in the series.
+ *
+ * The committed sampler runs about every two hours and a route refreshes every
+ * twenty minutes. Without a floor the live tail would outnumber the base six to
+ * one within a day and the percentile would mostly rank a reading against its
+ * own neighbours. Thirty minutes is the cadence the sampler asks for.
+ */
+const MIN_GAP_MS = 30 * 60 * 1000;
+
+/** Readings recorded by the routes since this process started, oldest first. */
+const liveLiq: SeriesPoint[] = [];
+const liveVol: { at: string; ratios: Record<VolSlice, number | null> }[] = [];
+
+/** True when `at` is at least MIN_GAP_MS after the newest of `ats`. */
+function spaced(at: string, ats: string[]): boolean {
+  const t = Date.parse(at);
+  if (!Number.isFinite(t)) return false;
+  const last = ats.length ? Date.parse(ats[ats.length - 1]) : -Infinity;
+  return t - last >= MIN_GAP_MS;
+}
+
+/**
+ * Add a fresh concentration reading to the live tail.
+ *
+ * Call after ranking the reading, so a value is never ranked against itself.
+ */
+export async function recordLiq(point: SeriesPoint): Promise<void> {
+  const base = await baseLiq();
+  if (!spaced(point.at, [base.to ?? "", ...liveLiq.map((p) => p.at)].filter(Boolean))) return;
+  liveLiq.push(point);
+}
+
+/** Add a fresh volume reading to the live tail. Same rule as `recordLiq`. */
+export async function recordVol(point: { at: string; ratios: Record<VolSlice, number | null> }): Promise<void> {
+  const base = await baseVol();
+  if (!spaced(point.at, [...base, ...liveVol].map((p) => p.at))) return;
+  liveVol.push(point);
+}
+
 // Read once per process. The files never change under a running container, so
 // re-reading them on every refresh would be pure waste, and at 96 samples a day
 // the parse is not free.
@@ -64,6 +110,14 @@ let cached: Series | null = null;
  * the sampler started.
  */
 export async function liqSeries(): Promise<Series> {
+  const base = await baseLiq();
+  if (!liveLiq.length) return base;
+  const points = [...base.points, ...liveLiq];
+  return { points, from: points[0].at, to: points[points.length - 1].at };
+}
+
+/** The committed samples alone, parsed once per process. */
+async function baseLiq(): Promise<Series> {
   if (cached) return cached;
 
   let files: string[];
@@ -144,12 +198,21 @@ export function percentile(value: number, sample: number[], minSample = 30): num
  * early samples survive.
  */
 export async function volSeries(): Promise<{ at: string; ratios: Record<VolSlice, number | null> }[]> {
+  return [...(await baseVol()), ...liveVol];
+}
+
+let cachedVol: { at: string; ratios: Record<VolSlice, number | null> }[] | null = null;
+
+/** The committed volume samples alone, parsed once per process. */
+async function baseVol(): Promise<{ at: string; ratios: Record<VolSlice, number | null> }[]> {
+  if (cachedVol) return cachedVol;
   const out: { at: string; ratios: Record<VolSlice, number | null> }[] = [];
 
   let files: string[];
   try {
     files = (await readdir(DIR)).filter((f) => f.endsWith(".jsonl")).sort();
   } catch {
+    cachedVol = out;
     return out;
   }
 
@@ -183,5 +246,6 @@ export async function volSeries(): Promise<{ at: string; ratios: Record<VolSlice
   }
 
   out.sort((a, b) => a.at.localeCompare(b.at));
+  cachedVol = out;
   return out;
 }

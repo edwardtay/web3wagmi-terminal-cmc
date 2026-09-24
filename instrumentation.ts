@@ -47,4 +47,23 @@ export async function register() {
       }
     }
   })();
+
+  // Keep the CoinMarketCap desks turning over when nobody is reading them.
+  //
+  // A route with a revalidate window only refreshes when someone asks for it,
+  // and then serves that person the stale copy while it rebuilds. On a quiet
+  // evening the first reader got a forced-selling panel eight hours old. The
+  // same visits are what feed the live tail in `lib/liqSeries.ts`, so without
+  // them the percentile stops growing whenever traffic does.
+  //
+  // This costs nothing beyond each route's stated budget, because a route
+  // rebuilds at most once per revalidate window however often it is asked. The
+  // ten minute interval is half the shortest window, so no reading is ever
+  // more than one window plus ten minutes old.
+  const KEEP_WARM = ["/api/forced", "/api/volume", "/api/leverage"];
+  setInterval(() => {
+    for (const path of KEEP_WARM) {
+      fetch(`${origin}${path}`, { cache: "no-store", signal: AbortSignal.timeout(60_000) }).catch(() => {});
+    }
+  }, 10 * 60 * 1000).unref();
 }

@@ -41,6 +41,12 @@ import { MATRIX } from "@/lib/symbols";
 // 21,600 credits a month, which is 44% over the entire free allowance on its
 // own.
 export const revalidate = 7200;
+
+// Rendered per request, with each upstream call held in the fetch cache for the
+// window above, so the credit spend is unchanged. A prerendered route bakes in
+// whatever the build read: one blip during a build served "CoinMarketCap did
+// not answer" from /api/volume for a whole window after a clean deploy.
+export const dynamic = "force-dynamic";
 const CACHE = 7200;
 
 export interface LeverageRow {

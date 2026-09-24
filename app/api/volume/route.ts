@@ -1,6 +1,6 @@
 import { jsonResponse } from "@/lib/http";
 import { BUDGET, FAILURE_TEXT, globalMetrics, type CallRecord } from "@/lib/cmc";
-import { percentile, volSeries, type VolSlice } from "@/lib/liqSeries";
+import { percentile, recordVol, volSeries, type VolSlice } from "@/lib/liqSeries";
 
 // How much of the world's printed volume CoinMarketCap refuses to count.
 //
@@ -31,6 +31,12 @@ import { percentile, volSeries, type VolSlice } from "@/lib/liqSeries";
 // itself updates every few minutes. Reading it faster would show noise on a
 // number whose denominator is a day.
 export const revalidate = 1800;
+
+// Rendered per request, with each upstream call held in the fetch cache for the
+// window above, so the credit spend is unchanged. A prerendered route bakes in
+// whatever the build read: one blip during a build served "CoinMarketCap did
+// not answer" from /api/volume for a whole window after a clean deploy.
+export const dynamic = "force-dynamic";
 const CACHE = 1800;
 
 const SLICES = [
@@ -120,6 +126,13 @@ export async function GET() {
     };
   });
 
+  // Ranked above, recorded here, so today's ratio never ranks against itself.
+  await recordVol({
+    at: new Date().toISOString(),
+    ratios: Object.fromEntries(rows.map((r) => [r.key, r.inflation])) as Record<VolSlice, number | null>,
+  });
+  const sampleNow = await volSeries();
+
   const spot = rows.find((r) => r.key === "total")?.inflation ?? null;
   const deriv = rows.find((r) => r.key === "deriv")?.inflation ?? null;
 
@@ -131,9 +144,9 @@ export async function GET() {
       rows,
       spotVsDerivatives: spot != null && deriv != null ? spot - deriv : null,
       sample: {
-        n: series.length,
-        from: series[0]?.at ?? null,
-        to: series[series.length - 1]?.at ?? null,
+        n: sampleNow.length,
+        from: sampleNow[0]?.at ?? null,
+        to: sampleNow[sampleNow.length - 1]?.at ?? null,
       },
       credits: calls.reduce((s, c) => s + c.credits, 0),
       budget: { monthly: BUDGET.monthly(revalidate, 0), routeAllowance: BUDGET.routeAllowance() },

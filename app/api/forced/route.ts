@@ -10,7 +10,7 @@ import {
   type CallRecord,
   type CmcFailure,
 } from "@/lib/cmc";
-import { liqSeries, percentile } from "@/lib/liqSeries";
+import { liqSeries, percentile, recordLiq } from "@/lib/liqSeries";
 
 // Forced selling across every venue CoinMarketCap tracks.
 //
@@ -42,6 +42,12 @@ import { liqSeries, percentile } from "@/lib/liqSeries";
 // ends when submissions close on 30 September and judging runs to 16 October,
 // so a desk tuned to the event tier goes dark in the fortnight it is scored in.
 export const revalidate = 1200;
+
+// Rendered per request, with each upstream call held in the fetch cache for the
+// window above, so the credit spend is unchanged. A prerendered route bakes in
+// whatever the build read: one blip during a build served "CoinMarketCap did
+// not answer" from /api/volume for a whole window after a clean deploy.
+export const dynamic = "force-dynamic";
 const CACHE = 1200;
 
 /** Windows the panel offers, and the field suffix each one reads. */
@@ -228,6 +234,19 @@ export async function GET() {
     };
   }
 
+  // Ranked first, then recorded, so this reading never ranks against itself.
+  // Only a read of every venue is recorded: a partial market would sit in the
+  // series as a quiet hour, which is the same reason the sampler skips a run.
+  if (exchanges.length >= 9) {
+    await recordLiq({
+      at: new Date().toISOString(),
+      h1: windows["1h"].score,
+      h4: windows["4h"].score,
+      h24: windows["24h"].score,
+    });
+  }
+  const sampleNow = await liqSeries();
+
   const coinRows: CoinRow[] = (coins?.cryptocurrencies ?? [])
     .map((c) => ({
       id: c.crypto_id,
@@ -246,7 +265,7 @@ export async function GET() {
     windows,
     venues: venueRows.sort((a, b) => b.by["24h"].total - a.by["24h"].total),
     coins: coinRows,
-    sample: { n: series.points.length, from: series.from, to: series.to },
+    sample: { n: sampleNow.points.length, from: sampleNow.from, to: sampleNow.to },
     coverage: {
       venues: exchanges.length,
       coinsReturned: coins?.cryptocurrencies?.length ?? 0,
