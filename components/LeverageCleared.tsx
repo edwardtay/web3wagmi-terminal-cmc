@@ -74,6 +74,14 @@ export function LeverageCleared() {
                 <tr>
                   <Th label="Coin" sortKey="symbol" sort={sort} />
                   <Th
+                    label="Cleared"
+                    sortKey="clearedFraction"
+                    sort={sort}
+                    num
+                    hint="Liquidated value over vouched-for open interest. This ranks by how much of a book went, so a small coin losing half a percent sits above a major losing a tenth."
+                  />
+                  <Th label="" className="w-24" />
+                  <Th
                     label="Liquidated, 24h"
                     sortKey="liquidated24h"
                     sort={sort}
@@ -87,14 +95,6 @@ export function LeverageCleared() {
                     num
                     hint="Summed across the market pairs CoinMarketCap vouches for. Pairs it marks outlying, or excludes from price or volume, are counted in the flagged column instead."
                   />
-                  <Th
-                    label="Cleared"
-                    sortKey="clearedFraction"
-                    sort={sort}
-                    num
-                    hint="Liquidated value over vouched-for open interest. This ranks by how much of a book went, so a small coin losing half a percent sits above a major losing a tenth."
-                  />
-                  <Th label="" className="w-24" />
                   <Th
                     label="Unfiltered"
                     sortKey="clearedFractionUnfiltered"
@@ -122,14 +122,14 @@ export function LeverageCleared() {
                 {sort.sorted.map((r) => (
                   <tr key={r.symbol}>
                     <td className="ident break-words font-semibold">{r.symbol}</td>
-                    <td className="num" style={{ color: LONG }}>{usdCompact(r.liquidated24h)}</td>
-                    <td className="num">{usdCompact(r.openInterest)}</td>
                     <td className="num">
                       {r.clearedFraction != null ? pctPlain(100 * r.clearedFraction, 3) : NA}
                     </td>
                     <td className="num">
                       <BarCell value={r.clearedFraction ?? 0} max={maxCleared} color={LONG} />
                     </td>
+                    <td className="num" style={{ color: LONG }}>{usdCompact(r.liquidated24h)}</td>
+                    <td className="num">{usdCompact(r.openInterest)}</td>
                     <td className="num text-[var(--text3)]">
                       {r.clearedFractionUnfiltered != null
                         ? pctPlain(100 * r.clearedFractionUnfiltered, 3)
