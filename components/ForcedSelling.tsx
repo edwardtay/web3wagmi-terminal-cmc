@@ -29,6 +29,15 @@ interface VenueRowView {
   long: number;
   short: number;
   share: number;
+  /** Open interest on this venue across the nine majors, on pairs CoinMarketCap uses. */
+  oi: number | null;
+  /**
+   * Share of the feed's liquidations over share of the feed's open interest.
+   * Shares rather than a ratio of dollars, because the liquidations cover every
+   * coin and the open interest only the nine majors. Near 1 is proportionate;
+   * well above 1 is a venue liquidating more than its size.
+   */
+  vsSize: number | null;
 }
 
 interface CoinRowView {
@@ -174,12 +183,20 @@ export function ForcedSelling() {
 
   const win = data?.windows?.[w] ?? null;
 
-  const venueRows: VenueRowView[] = (data?.venues ?? []).map((v) => ({
-    id: v.id,
-    name: v.name,
-    streamed: v.streamed,
-    ...v.by[w],
-  }));
+  const venueOiByName = new Map(venueOi.map((v) => [v.venue, v.openInterest]));
+  const feedOi = (data?.venues ?? []).reduce((s, v) => s + (venueOiByName.get(v.name) ?? 0), 0);
+  const venueRows: VenueRowView[] = (data?.venues ?? []).map((v) => {
+    const oi = venueOiByName.get(v.name) ?? null;
+    const oiShare = oi != null && feedOi > 0 ? oi / feedOi : null;
+    return {
+      id: v.id,
+      name: v.name,
+      streamed: v.streamed,
+      ...v.by[w],
+      oi,
+      vsSize: oiShare && oiShare > 0.002 ? v.by[w].share / oiShare : null,
+    };
+  });
 
   const coinRows: CoinRowView[] = (data?.coins ?? []).map((c) => ({
     id: c.id,
@@ -339,6 +356,20 @@ export function ForcedSelling() {
                     <Th label={`Liquidated, ${w}`} sortKey="total" sort={venueSort} num />
                     <Th label="Share" sortKey="share" sort={venueSort} num />
                     <Th
+                      label="Open interest"
+                      sortKey="oi"
+                      sort={venueSort}
+                      num
+                      hint="Money in open leveraged bets on this exchange, across the nine biggest coins, counting only pairs CoinMarketCap uses in its own figures."
+                    />
+                    <Th
+                      label="Vs its size"
+                      sortKey="vsSize"
+                      sort={venueSort}
+                      num
+                      hint="This exchange's share of the liquidations divided by its share of the open interest. 1.0x is in proportion to its size. Above 1 it liquidated more than its size, a hot spot; below 1, less. Shares are compared because the liquidations cover every coin and the open interest the nine biggest."
+                    />
+                    <Th
                       label="Longs"
                       sortKey="long"
                       sort={venueSort}
@@ -365,6 +396,13 @@ export function ForcedSelling() {
                       </td>
                       <td className="num">{usdCompact(r.total)}</td>
                       <td className="num">{pctPlain(100 * r.share)}</td>
+                      <td className="num text-[var(--text2)]">{r.oi != null ? usdCompact(r.oi) : NA}</td>
+                      <td
+                        className="num font-semibold"
+                        style={{ color: r.vsSize == null ? "var(--text3)" : r.vsSize >= 1.5 ? "var(--neg)" : "var(--text)" }}
+                      >
+                        {r.vsSize != null ? `${r.vsSize.toFixed(1)}x` : NA}
+                      </td>
                       <td className="num" style={{ color: LONG }}>{usdCompact(r.long)}</td>
                       <td className="num" style={{ color: SHORT }}>{usdCompact(r.short)}</td>
                       <td className="num">
@@ -409,7 +447,7 @@ export function ForcedSelling() {
                   <tr>
                     <Th label="Coin" sortKey="symbol" sort={coinSort} />
                     <Th
-                      label="Rank"
+                      label="Market cap rank"
                       sortKey="rank"
                       sort={coinSort}
                       num
