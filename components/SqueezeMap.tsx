@@ -24,12 +24,12 @@ const FLUSH = "var(--neg)";
 const OTHER = "var(--text3)";
 const MAX_COINS = 25;
 /**
- * Only coins in CoinMarketCap's top 100 by market cap. The feed's largest
- * liquidations include names few readers follow (2Z at #134, PHA at #321, and
- * a crude oil contract at #7,595), and on a map meant to be read at a glance
- * they are noise. The table below keeps every coin.
+ * Only coins in CoinMarketCap's top 300 by market cap. The feed's largest
+ * liquidations include names few readers follow (PHA at #321, LYN at #935,
+ * and a crude oil contract at #7,595), and on a map meant to be read at a
+ * glance they are noise. The table below keeps every coin.
  */
-const TOP_RANK = 100;
+const TOP_RANK = 300;
 const LABELLED = 8;
 
 export function SqueezeMap({ coins, w }: { coins: Coin[]; w: Key }) {
@@ -155,7 +155,7 @@ export function SqueezeMap({ coins, w }: { coins: Coin[]; w: Key }) {
         </div>
       )}
       <p className="mt-1 text-[11px] leading-relaxed text-[var(--text3)]">
-        The 100 largest coins by market cap, each sized by dollars liquidated; smaller coins are in the
+        The 300 largest coins by market cap, each sized by dollars liquidated; smaller coins are in the
         table below. Up means shorts were forced out, down means longs. Hover a bubble for its numbers.
       </p>
     </div>
