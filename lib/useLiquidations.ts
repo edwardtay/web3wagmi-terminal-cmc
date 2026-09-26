@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // Binance USDT-margined futures all-market force-order stream. Payload shape
 // (verified against the connector docs and the raw event typings):
 //   { e:"forceOrder", E, o:{ s,S,o,f,q,p,ap,X,l,z,T } }
-// Only the latest force order per symbol per 1000ms is pushed, so this is a
+// Only the largest force order per symbol per 1000ms is pushed (the latest,
+// before Binance changed it on 2026-04-14), so this is a
 // snapshot tape rather than every single fill.
 //
 // On mount the tape is seeded from /api/liqtape, which the server records from

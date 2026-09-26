@@ -9,7 +9,8 @@ import "server-only";
 // /api/liqtape before the live socket takes over. One upstream connection
 // serves every reader, and it is server-side like every other upstream call.
 //
-// The stream pushes at most the latest force order per symbol per second, so
+// The stream pushes at most the largest force order per symbol per second
+// (the latest until Binance changed it on 2026-04-14), so
 // this is a snapshot tape rather than every fill, exactly as the browser saw it.
 // It is lost on restart, so a fresh container starts empty and fills forward.
 
