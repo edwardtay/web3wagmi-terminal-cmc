@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans, Space_Grotesk, Roboto_Mono } from "next/font/google"
 import "./globals.css";
 import { SiteNav } from "@/components/SiteNav";
 import { AskBot } from "@/components/AskBot";
+import { HashAnchor } from "@/components/HashAnchor";
 
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -84,6 +85,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Reads the live desks through /api/ask. Separate from the feedback
             widget below it, which posts a message to a person. */}
         <AskBot />
+        {/* Keeps a #section link on its section while the panels above load. */}
+        <HashAnchor />
 
         <Script
           src="/feedback-widget.js"
