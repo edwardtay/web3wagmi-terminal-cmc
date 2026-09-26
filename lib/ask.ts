@@ -1073,7 +1073,17 @@ async function tryFallbacks(
     // correctly in 52 seconds and was cut off at 45.
     for (const [i, key] of FALLBACK_KEYS.entries()) {
       const res = await callProvider(FALLBACK_BASE, key, model, messages, withTools, 75_000, maxTokens);
-      if (res.message) return { message: res.message, model, truncated: res.truncated };
+      // An answer round that comes back with nothing to say is a failure here
+      // rather than a reply. gpt-oss-20b spends its budget reasoning over a
+      // large evidence block and returns empty content often enough to see in
+      // production, and returning it ended the question on "empty completion"
+      // while another model was one request away.
+      const empty = Boolean(res.message) && !withTools && !res.message?.content?.trim() && !res.message?.tool_calls?.length;
+      if (res.message && !empty) return { message: res.message, model, truncated: res.truncated };
+      if (empty) {
+        console.error(`[ask] fallback ${model} returned an empty answer${res.truncated ? " (cut off)" : ""}, trying the next model`);
+        break;
+      }
       console.error(`[ask] fallback ${model} key ${i + 1}/${FALLBACK_KEYS.length} ${res.status}: ${res.detail}`);
       // Only a rate limit is worth another key. Anything else is the model or
       // the request, and every key would get the same answer.
