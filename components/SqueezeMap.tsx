@@ -23,6 +23,13 @@ const SQUEEZE = "var(--pos)";
 const FLUSH = "var(--neg)";
 const OTHER = "var(--text3)";
 const MAX_COINS = 25;
+/**
+ * Only coins in CoinMarketCap's top 100 by market cap. The feed's largest
+ * liquidations include names few readers follow (2Z at #134, PHA at #321, and
+ * a crude oil contract at #7,595), and on a map meant to be read at a glance
+ * they are noise. The table below keeps every coin.
+ */
+const TOP_RANK = 100;
 const LABELLED = 8;
 
 export function SqueezeMap({ coins, w }: { coins: Coin[]; w: Key }) {
@@ -40,7 +47,7 @@ export function SqueezeMap({ coins, w }: { coins: Coin[]; w: Key }) {
 
   const rows = coins
     .map((c) => ({ c, v: c.by[w] }))
-    .filter(({ v }) => v && v.total > 0 && v.priceChange != null)
+    .filter(({ c, v }) => c.rank > 0 && c.rank <= TOP_RANK && v && v.total > 0 && v.priceChange != null)
     .sort((a, b) => b.v.total - a.v.total)
     .slice(0, MAX_COINS);
 
@@ -148,8 +155,8 @@ export function SqueezeMap({ coins, w }: { coins: Coin[]; w: Key }) {
         </div>
       )}
       <p className="mt-1 text-[11px] leading-relaxed text-[var(--text3)]">
-        Each bubble is a coin, sized by dollars liquidated. Up means shorts were forced out, down means
-        longs. Hover a bubble for its numbers.
+        The 100 largest coins by market cap, each sized by dollars liquidated; smaller coins are in the
+        table below. Up means shorts were forced out, down means longs. Hover a bubble for its numbers.
       </p>
     </div>
   );

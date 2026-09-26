@@ -57,8 +57,11 @@ export function LiqStory({
 }) {
   const longShare = win.total > 0 ? win.long / win.total : 0.5;
   const mood = verdict(win.totalPercentile);
-  const squeezed = coins.filter((c) => c.by[w as keyof Coin["by"]]?.read === "squeeze").map((c) => c.symbol);
-  const flushed = coins.filter((c) => c.by[w as keyof Coin["by"]]?.read === "flush").map((c) => c.symbol);
+  // Named coins come from the 100 largest by market cap, the ones a reader is
+  // likely to know. The table below lists the rest.
+  const known = coins.filter((c) => c.rank > 0 && c.rank <= 100);
+  const squeezed = known.filter((c) => c.by[w as keyof Coin["by"]]?.read === "squeeze").map((c) => c.symbol);
+  const flushed = known.filter((c) => c.by[w as keyof Coin["by"]]?.read === "flush").map((c) => c.symbol);
   const concentrated = win.effectiveVenues <= venues * 0.25;
 
   const side =
@@ -111,7 +114,7 @@ export function LiqStory({
         >
           {squeezed.length > 0 && <>Shorts were squeezed on {names(squeezed)}: forced buying as the price rose. </>}
           {flushed.length > 0 && <>Longs were flushed on {names(flushed)}: forced selling as the price fell. </>}
-          {!squeezed.length && !flushed.length && "No coin shows one side forced out in the direction its price moved."}
+          {!squeezed.length && !flushed.length && "No top 100 coin shows one side forced out in the direction its price moved."}
         </Step>
       </div>
     </div>
