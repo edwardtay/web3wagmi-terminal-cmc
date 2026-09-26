@@ -71,18 +71,23 @@ function quantile(sorted: number[], q: number): number {
  * return axis is bounded by the 5th/95th percentile with headroom and the few
  * outliers are pinned to the frame edge (their true value stays in the title).
  */
-function domain(values: number[]): [number, number] {
+function domain(values: number[], floor = -Infinity): [number, number] {
   const xs = values.filter(Number.isFinite).sort((a, b) => a - b);
   if (!xs.length) return [0, 1];
   const lo = Math.min(quantile(xs, 0.05), 0);
   const hi = Math.max(quantile(xs, 0.95), 0);
   const padding = (hi - lo) * 0.12 || 1;
-  return [lo - padding, hi + padding];
+  // Padding must not invent impossible values: the axis read -13% volatility
+  // and -851% return before this floor.
+  return [Math.max(floor, lo - padding), hi + padding];
 }
 
 function layout(rows: QuantRow[], D: Dims): { placed: Placed[]; xd: [number, number]; yd: [number, number] } {
-  const xd = domain(rows.map((r) => r.vol90));
-  const yd = domain(rows.map((r) => r.ret90Ann));
+  // Plain 90 day return on y. It was annualised by compounding, which turned
+  // UNI's 90 day gain into 12,436% a year and pressed every other asset into
+  // the bottom tenth of the frame.
+  const xd = domain(rows.map((r) => r.vol90), 0);
+  const yd = domain(rows.map((r) => r.r90), -100);
   const px = (v: number) => D.PAD.l + ((v - xd[0]) / (xd[1] - xd[0])) * (D.W - D.PAD.l - D.PAD.r);
   const py = (v: number) => D.H - D.PAD.b - ((v - yd[0]) / (yd[1] - yd[0])) * (D.H - D.PAD.t - D.PAD.b);
   const clampX = (v: number) => Math.min(D.W - D.PAD.r - 2, Math.max(D.PAD.l + 2, v));
@@ -96,9 +101,9 @@ function layout(rows: QuantRow[], D: Dims): { placed: Placed[]; xd: [number, num
   // Place the widest movers first so the outliers keep their natural position.
   const order = [...rows].sort((a, b) => (b.vol90 || 0) - (a.vol90 || 0));
   for (const r of order) {
-    if (!Number.isFinite(r.vol90) || !Number.isFinite(r.ret90Ann)) continue;
+    if (!Number.isFinite(r.vol90) || !Number.isFinite(r.r90)) continue;
     const rawX = px(r.vol90);
-    const rawY = py(r.ret90Ann);
+    const rawY = py(r.r90);
     const x = clampX(rawX);
     const y = clampY(rawY);
     const w = r.sym.length * 5.3 + 2;
@@ -174,7 +179,7 @@ function Scatter({ rows }: { rows: QuantRow[] }) {
         // would put the scrollbar back for nothing.
         style={{ minWidth: narrow ? undefined : 560, height: "auto" }}
         role="img"
-        aria-label="Risk and return scatter: annualised 90 day return against annualised 90 day volatility"
+        aria-label="Risk and return scatter: 90 day return against annualised 90 day volatility"
       >
         {ticks(yd).map((v, i) => (
           <g key={`y${i}`}>
@@ -220,10 +225,10 @@ function Scatter({ rows }: { rows: QuantRow[] }) {
             opacity="0.75"
           />
         )}
-        {btc && Number.isFinite(btc.ret90Ann) && (
+        {btc && Number.isFinite(btc.r90) && (
           <line
-            y1={py(btc.ret90Ann)}
-            y2={py(btc.ret90Ann)}
+            y1={py(btc.r90)}
+            y2={py(btc.r90)}
             x1={D.PAD.l}
             x2={D.W - D.PAD.r}
             stroke="var(--accent)"
@@ -262,12 +267,12 @@ function Scatter({ rows }: { rows: QuantRow[] }) {
               cx={p.x}
               cy={p.y}
               r={p.clamped ? 3 : 4}
-              fill={p.row.ret90Ann >= 0 ? "var(--pos)" : "var(--neg)"}
+              fill={p.row.r90 >= 0 ? "var(--pos)" : "var(--neg)"}
               fillOpacity={p.clamped ? 0.45 : 0.85}
               stroke="var(--surface)"
               strokeWidth="0.8"
             >
-              <title>{`${p.row.sym}: 90d annualised return ${pct(p.row.ret90Ann, 0)}, 90d annualised vol ${pctPlain(p.row.vol90, 0)}${p.clamped ? " (off scale, pinned to edge)" : ""}`}</title>
+              <title>{`${p.row.sym}: 90d return ${pct(p.row.r90, 0)}, 90d annualised vol ${pctPlain(p.row.vol90, 0)}${p.clamped ? " (off scale, pinned to edge)" : ""}`}</title>
             </circle>
             <text x={p.lx} y={p.ly} fontSize="9" fill="var(--text2)" className="font-mono">
               {p.row.sym}
@@ -287,7 +292,7 @@ function Scatter({ rows }: { rows: QuantRow[] }) {
           fill="var(--text3)"
           className="font-mono"
         >
-          annualised 90d return
+          90d return
         </text>
       </svg>
     </div>

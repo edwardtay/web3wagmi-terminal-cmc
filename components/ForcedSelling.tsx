@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AsOf, BarCell, ChangeChip, Loading, Meter, Panel, Section, Segmented, Sparkline, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
+import { AsOf, BarCell, ChangeChip, Loading, Panel, Section, Segmented, Sparkline, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
 import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { ForcedPayload, LiqRead } from "@/app/api/forced/route";
@@ -70,6 +70,89 @@ function concentrationWord(effectiveVenues: number, venues: number): string {
   if (effectiveVenues <= venues * 0.25) return "Concentrated";
   if (effectiveVenues <= venues * 0.5) return "Uneven";
   return "Broad";
+}
+
+/** A percentile as a reader says it: the ends of the record are named, not "0th". */
+function rank(p: number | null): string {
+  if (p == null) return NA;
+  if (p <= 0) return "lowest";
+  if (p >= 100) return "highest";
+  return ordinal(p);
+}
+
+/** One 100% bar, segments labelled directly beneath so identity never rests on colour. */
+function ShareBar({ label, parts }: { label: string; parts: { name: string; share: number; color: string }[] }) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] text-[var(--text2)]">{label}</div>
+      <div className="flex h-3 w-full gap-[2px] overflow-hidden rounded" role="img" aria-label={`${label}: ${parts.map((p) => `${p.name} ${Math.round(100 * p.share)}%`).join(", ")}`}>
+        {parts.map((p) => (
+          <div key={p.name} style={{ width: `${100 * p.share}%`, background: p.color }} />
+        ))}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[10px] text-[var(--text2)]">
+        {parts.map((p) => (
+          <span key={p.name} className="inline-flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-sm" style={{ background: p.color }} />
+            {p.name} {Math.round(100 * p.share)}%
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What the feed sees, drawn rather than written. It replaced a five-line
+ * paragraph: the tape covers Binance only, the feed covers nine venues, and
+ * those nine hold under half of the open interest CoinMarketCap vouches for.
+ * Amber is Binance, cyan the rest of the feed, grey what no feed here sees.
+ */
+function CoverageBars({
+  w,
+  streamedShare,
+  venues,
+  feedOiShare,
+  binanceOiShare,
+  oiVenueCount,
+}: {
+  w: string;
+  streamedShare: number;
+  venues: number;
+  feedOiShare: number | null;
+  binanceOiShare: number | null;
+  oiVenueCount: number;
+}) {
+  const BINANCE = "var(--accent)";
+  const FEED = "var(--cyan)";
+  const UNSEEN = "var(--border)";
+  return (
+    <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-3">
+      <ShareBar
+        label={`Liquidations in the feed, ${w}`}
+        parts={[
+          { name: "Binance, on the tape", share: streamedShare, color: BINANCE },
+          { name: `${venues - 1} other venues`, share: 1 - streamedShare, color: FEED },
+        ]}
+      />
+      {feedOiShare != null && binanceOiShare != null && (
+        <>
+          <ShareBar
+            label={`Open interest CoinMarketCap vouches for, ${oiVenueCount} venues`}
+            parts={[
+              { name: "Binance", share: binanceOiShare, color: BINANCE },
+              { name: `${venues - 1} other feed venues`, share: Math.max(0, feedOiShare - binanceOiShare), color: FEED },
+              { name: "outside the feed", share: 1 - feedOiShare, color: UNSEEN },
+            ]}
+          />
+          <p className="text-[11px] leading-relaxed text-[var(--text3)]">
+            If liquidations track open interest, the Binance tape sees about{" "}
+            {Math.round(100 * streamedShare * feedOiShare)}% of the market. CoinMarketCap is owned by Binance.
+          </p>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function ForcedSelling() {
@@ -167,36 +250,36 @@ export function ForcedSelling() {
               </div>
 
               <div>
-                <Meter
-                  label="Venue concentration"
-                  score={win.score}
-                  color={win.score >= 50 ? "var(--neg)" : win.score >= 25 ? "var(--gold)" : "var(--pos)"}
-                  caption={`${win.largestVenue} carried ${pctPlain(100 * win.largestShare)} of it`}
-                />
-                <div className="mt-2 font-mono text-[11px] tabular-nums text-[var(--text2)]">
-                  {win.effectiveVenues.toFixed(1)} effective venues of {data.coverage.venues} reporting
+                <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text3)]">
+                  How far it spread
                 </div>
-                <div className="mt-1 text-[11px] leading-relaxed text-[var(--text3)]">
-                  {concentrationWord(win.effectiveVenues, data.coverage.venues)}.{" "}
-                  {win.scorePercentile != null ? (
-                    <>
-                      That is the {ordinal(win.scorePercentile)} percentile of concentration in the{" "}
-                      {data.sample.n} samples collected since{" "}
-                      {data.sample.from ? data.sample.from.slice(0, 10) : "polling began"}.
-                    </>
-                  ) : (
-                    <>
-                      The collected series holds {data.sample.n}{" "}
-                      {data.sample.n === 1 ? "sample" : "samples"}, too few to rank this against. The
-                      feed publishes no history, so the series only grows forward.
-                    </>
-                  )}
-                  {win.totalPercentile != null && (
-                    <>
-                      {" "}By size, the {usdCompact(win.total)} total is the{" "}
-                      {ordinal(win.totalPercentile)} percentile of {w} windows.
-                    </>
-                  )}
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="font-mono text-[26px] font-semibold tabular-nums text-[var(--text)]">
+                    {win.effectiveVenues.toFixed(1)}
+                  </span>
+                  <span className="text-[12px] text-[var(--text2)]">
+                    effective venues of {data.coverage.venues}. {concentrationWord(win.effectiveVenues, data.coverage.venues)},
+                    and {win.largestVenue} carried {pctPlain(100 * win.largestShare, 0)}.
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-[var(--border)] px-2.5 py-1.5">
+                    <div className="font-mono text-[15px] font-semibold tabular-nums text-[var(--text)]">
+                      {rank(win.scorePercentile)}
+                    </div>
+                    <div className="text-[10px] leading-snug text-[var(--text3)]">concentration against its history</div>
+                  </div>
+                  <div className="rounded-md border border-[var(--border)] px-2.5 py-1.5">
+                    <div className="font-mono text-[15px] font-semibold tabular-nums text-[var(--text)]">
+                      {rank(win.totalPercentile)}
+                    </div>
+                    <div className="text-[10px] leading-snug text-[var(--text3)]">{w} size against its history</div>
+                  </div>
+                </div>
+                <div className="mt-1.5 text-[10px] text-[var(--text3)]">
+                  {win.scorePercentile != null
+                    ? `Ranked against ${data.sample.n} samples collected since ${data.sample.from?.slice(0, 10) ?? "polling began"}.`
+                    : `${data.sample.n} samples collected so far, too few to rank against.`}
                 </div>
                 {(data.history?.[w]?.score.length ?? 0) >= 2 && (
                   <div className="mt-3">
@@ -218,28 +301,14 @@ export function ForcedSelling() {
             </div>
 
             {win.streamedShare != null && (
-              <p className="mt-4 border-t border-[var(--border)] pt-3 text-[11px] leading-relaxed text-[var(--text2)]">
-                The terminal&apos;s force-order tape covers Binance only, which carried{" "}
-                <span className="font-mono tabular-nums">{pctPlain(100 * win.streamedShare)}</span> of
-                this {w} window. The other{" "}
-                <span className="font-mono tabular-nums">{pctPlain(100 * (1 - win.streamedShare))}</span>,{" "}
-                {usdCompact(win.total * (1 - win.streamedShare))}, never reached it.
-                {feedOiShare != null && binanceOiShare != null && (
-                  <>
-                    {" "}The feed itself is partial. Its {data.coverage.venues} venues hold{" "}
-                    <span className="font-mono tabular-nums">{pctPlain(100 * feedOiShare, 0)}</span> of the
-                    open interest CoinMarketCap vouches for across {oiVenueCount} venues on {lev.data?.coverage.priced ?? 9}{" "}
-                    majors, and Binance alone holds{" "}
-                    <span className="font-mono tabular-nums">{pctPlain(100 * binanceOiShare, 0)}</span>. So
-                    Binance&apos;s share above is a share of the visible part of the market. If liquidations
-                    elsewhere track open interest, the tape saw about{" "}
-                    <span className="font-mono tabular-nums">
-                      {pctPlain(100 * win.streamedShare * feedOiShare, 0)}
-                    </span>{" "}
-                    of the whole. CoinMarketCap is owned by Binance, which is one more reason to show this.
-                  </>
-                )}
-              </p>
+              <CoverageBars
+                w={w}
+                streamedShare={win.streamedShare}
+                venues={data.coverage.venues}
+                feedOiShare={feedOiShare}
+                binanceOiShare={binanceOiShare}
+                oiVenueCount={oiVenueCount}
+              />
             )}
 
             <div className="mt-5">

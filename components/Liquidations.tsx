@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarCell, InfoHint, LivePill, Panel, Section, Segmented, TableWrap, Th, Unavailable } from "@/components/ui";
-import { clockTime, compact, pctPlain, price, usdCompact } from "@/lib/format";
+import { InfoHint, LivePill, Panel, Section, Segmented, TableWrap, Th, Unavailable } from "@/components/ui";
+import { clockTime, compact, price, usdCompact } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { unitOf, useLiquidations, type LiqEvent } from "@/lib/useLiquidations";
-import type { ForcedPayload } from "@/app/api/forced/route";
 import { LiqCharts } from "@/components/LiqCharts";
 
 type Filter = "all" | "10k" | "100k";
@@ -105,16 +104,6 @@ export function Liquidations() {
   const liq = useLiquidations();
   const [filter, setFilter] = useState<Filter>("all");
 
-  // The cross-venue figure, so the session card is never blank.
-  //
-  // This tape is a browser websocket on one venue's force orders with a ring
-  // buffer, so it starts at zero on every page load and stays there until
-  // something liquidates on Binance. A quiet half hour therefore rendered a
-  // card that said nothing at all, which is the blank card this codebase calls
-  // a defect. What was actually happening in that half hour is one fetch away.
-  const { data: forced } = useApi<ForcedPayload>("/api/forced", 300);
-  const wide = forced?.ok ? forced.windows?.["1h"] : null;
-
   // sessionStart comes from Date.now() in the hook, so it differs between the
   // server render and the client. Hold the label back until after mount.
   const [mounted, setMounted] = useState(false);
@@ -122,11 +111,6 @@ export function Liquidations() {
 
   const rows = filter === "all" ? liq.tape.all : filter === "10k" ? liq.tape.t10k : liq.tape.t100k;
   const maxUsd = useMemo(() => rows.reduce((m, e) => Math.max(m, e.usd), 0), [rows]);
-
-  const total = liq.longUsd + liq.shortUsd;
-  const longShare = total > 0 ? (liq.longUsd / total) * 100 : 50;
-  const topSymbols = liq.bySymbol.slice(0, 10);
-  const topMax = topSymbols[0]?.totalUsd ?? 0;
 
   const live = liq.status === "live";
   const waiting = liq.count === 0;
@@ -149,7 +133,7 @@ export function Liquidations() {
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.45fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
         {/* ------------------------------------------------------- the tape -- */}
         <Panel
           title="Force order tape"
@@ -204,17 +188,12 @@ export function Liquidations() {
                           {e.side === "long" ? "long liquidated" : "short liquidated"}
                         </span>
                       </td>
-                      <td className="num" style={{ minWidth: 92 }}>
-                        <div
-                          className={heavy ? "text-[13px] font-bold" : "font-semibold"}
-                          style={{ color: heavy ? sideColor(e.side) : "var(--text)" }}
-                        >
-                          {usdCompact(e.usd, e.usd >= 1e6 ? 2 : 1)}
-                        </div>
-                        <div className="mt-1">
-                          <BarCell value={e.usd} max={maxUsd} color={sideColor(e.side)} />
-                        </div>
-                        <div className="mt-1 text-[10px] text-[var(--text3)]">{compact(e.qty, 2)} {unitOf(e.symbol)}</div>
+                      <td
+                        className={`num ${heavy ? "font-bold" : "font-semibold"}`}
+                        style={{ color: heavy ? sideColor(e.side) : "var(--text)" }}
+                        title={`${compact(e.qty, 2)} ${unitOf(e.symbol)}`}
+                      >
+                        {usdCompact(e.usd, e.usd >= 1e6 ? 2 : 1)}
                       </td>
                       <td className="num text-[var(--text2)]">{price(e.price)}</td>
                     </tr>
@@ -229,146 +208,7 @@ export function Liquidations() {
           </div>
         </Panel>
 
-        {/* ---------------------------------------------------- the summary -- */}
-        <Panel
-          title="This session"
-        >
-          {waiting ? (
-            <div className="py-6 text-center font-mono text-[11px] leading-relaxed text-[var(--text3)]">
-              Nothing has printed on Binance since this page loaded.
-              <div className="mt-1">Totals start at zero on every page load.</div>
-
-              {wide && wide.total > 0 && (
-                <div className="mt-5 border-t border-[var(--border)] pt-4">
-                  <div className="font-mono text-xl font-bold tabular-nums text-[var(--text)]">
-                    {usdCompact(wide.total)}
-                  </div>
-                  <div className="mt-1">
-                    liquidated across {forced?.coverage.venues} venues in the last hour
-                  </div>
-                  {wide.streamedShare != null && (
-                    <div className="mt-2">
-                      Binance carried {pctPlain(100 * wide.streamedShare)} of it.
-                    </div>
-                  )}
-                  <a
-                    href="#forced"
-                    className="mt-3 inline-block underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--text)]"
-                  >
-                    the full venue split
-                  </a>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* opposed long vs short bar */}
-              <div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono text-[11px] font-bold" style={{ color: "var(--neg)" }}>
-                    {usdCompact(liq.longUsd)}
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text3)]">
-                    longs vs shorts
-                  </span>
-                  <span className="font-mono text-[11px] font-bold" style={{ color: "var(--pos)" }}>
-                    {usdCompact(liq.shortUsd)}
-                  </span>
-                </div>
-                <div
-                  className="mt-1.5 flex h-2.5 w-full overflow-hidden rounded-full bg-[var(--surface2)]"
-                  role="img"
-                  aria-label={`Longs liquidated ${pctPlain(longShare)} of session notional`}
-                >
-                  <div style={{ width: `${longShare}%`, background: "var(--neg)" }} />
-                  <div style={{ width: `${100 - longShare}%`, background: "var(--pos)" }} />
-                </div>
-                <div className="mt-1 flex justify-between font-mono text-[10px] text-[var(--text3)]">
-                  <span>{pctPlain(longShare)} longs</span>
-                  <span>{liq.count.toLocaleString("en-US")} prints · {usdCompact(total)} total</span>
-                  <span>{pctPlain(100 - longShare)} shorts</span>
-                </div>
-              </div>
-
-              {/* largest single print */}
-              {liq.largest && (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] p-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text3)]">
-                      Largest print
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <span
-                      className="font-mono text-lg font-bold"
-                      style={{ color: sideColor(liq.largest.side) }}
-                    >
-                      {usdCompact(liq.largest.usd)}
-                    </span>
-                    <span className="font-mono text-xs font-semibold text-[var(--text)]">{liq.largest.base}</span>
-                    <span
-                      className="font-mono text-[10px] font-bold uppercase tracking-wider"
-                      style={{ color: sideColor(liq.largest.side) }}
-                    >
-                      {liq.largest.side === "long" ? "long liquidated" : "short liquidated"}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-mono text-[10px] text-[var(--text3)]">
-                    {clockTime(liq.largest.ts)} at {price(liq.largest.price)}
-                  </div>
-                </div>
-              )}
-
-              {/* top symbols by liquidated notional */}
-              <div>
-                <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text3)]">
-                  Top symbols by liquidated notional
-                </div>
-                <TableWrap maxHeight={300}>
-                  <thead>
-                    <tr>
-                      <th scope="col" className="ident">Symbol</th>
-                      <th scope="col">Long / short split</th>
-                      <th scope="col" className="num">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topSymbols.map((r) => {
-                      const share = r.totalUsd > 0 ? (r.longUsd / r.totalUsd) * 100 : 50;
-                      const width = topMax > 0 ? Math.max(4, (r.totalUsd / topMax) * 100) : 0;
-                      return (
-                        <tr key={r.symbol}>
-                          <td className="font-mono font-semibold text-[var(--text)]">{r.base}</td>
-                          <td style={{ minWidth: 90 }}>
-                            <div
-                              className="flex h-2 overflow-hidden rounded-full bg-[var(--surface2)]"
-                              style={{ width: `${width}%` }}
-                              role="img"
-                              aria-label={`${r.base}: ${pctPlain(share)} longs`}
-                            >
-                              <div style={{ width: `${share}%`, background: "var(--neg)" }} />
-                              <div style={{ width: `${100 - share}%`, background: "var(--pos)" }} />
-                            </div>
-                            <div className="mt-1 font-mono text-[10px] text-[var(--text3)]">
-                              {r.count} print{r.count === 1 ? "" : "s"} · {pctPlain(share)} long
-                            </div>
-                          </td>
-                          <td className="num font-semibold text-[var(--text)]">{usdCompact(r.totalUsd, 1)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </TableWrap>
-              </div>
-            </div>
-          )}
-        </Panel>
-      </div>
-
-      <div className="mt-3">
-        <LiqCharts />
+        <LiqCharts stacked />
       </div>
 
       <div className="mt-3">

@@ -99,9 +99,15 @@ function SizeChart({ sizes }: { sizes: LiqTapePayload["sizes"] }) {
   return (
     <div>
       <p className="mb-3 text-[11px] leading-relaxed text-[var(--text2)]">
-        Prints of $100K and up were{" "}
-        <span className="font-mono tabular-nums">{pctPlain(100 * bigCount)}</span> of the count and{" "}
-        <span className="font-mono tabular-nums">{pctPlain(100 * bigUsd)}</span> of the dollars.
+        {bigCount > 0 ? (
+          <>
+            Prints of $100K and up were{" "}
+            <span className="font-mono tabular-nums">{pctPlain(100 * bigCount)}</span> of the count and{" "}
+            <span className="font-mono tabular-nums">{pctPlain(100 * bigUsd)}</span> of the dollars.
+          </>
+        ) : (
+          <>No print has reached $100K since recording began, so the dollars come from small positions.</>
+        )}
       </p>
       <div className="mb-2 flex flex-wrap gap-3 font-mono text-[10px] text-[var(--text2)]">
         <span className="inline-flex items-center gap-1.5">
@@ -114,7 +120,8 @@ function SizeChart({ sizes }: { sizes: LiqTapePayload["sizes"] }) {
         </span>
       </div>
       <div className="space-y-2">
-        {sizes.map((b) => {
+        {/* An empty top bucket is two zero bars that say nothing. */}
+        {sizes.filter((b) => b.count > 0 || b.to != null).map((b) => {
           const c = b.count / count;
           const d = b.usd / usd;
           return (
@@ -143,7 +150,7 @@ function SizeChart({ sizes }: { sizes: LiqTapePayload["sizes"] }) {
   );
 }
 
-export function LiqCharts() {
+export function LiqCharts({ stacked = false }: { stacked?: boolean }) {
   const { data } = useApi<LiqTapePayload>("/api/liqtape", 30);
   if (!data) return null;
   const hourLong = data.minutes.reduce((s, m) => s + m.long, 0);
@@ -152,7 +159,7 @@ export function LiqCharts() {
   const since = data.window.from ?? data.startedAt;
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.45fr_1fr]">
+    <div className={stacked ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 gap-3 lg:grid-cols-[1.45fr_1fr]"}>
       <Panel
         title="Last hour, per minute"
         hint="Binance force orders recorded by this server. Shorts liquidated plot above the line (forced buying), longs below (forced selling). The stream sends at most one print per symbol per second, so this is a snapshot of the tape rather than every fill."
