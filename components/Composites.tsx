@@ -2,7 +2,7 @@
 
 import { useApi } from "@/lib/useApi";
 import { Loading, Unavailable, InfoHint } from "./ui";
-import { num, usdCompact, signColor } from "@/lib/format";
+import { num, usdCompact, signColor, ordinal } from "@/lib/format";
 
 // What the whole market is doing, rather than what six coins cost.
 //
@@ -144,7 +144,7 @@ export function Composites() {
         sub={
           s?.percentile == null
             ? s?.band?.label
-            : `${s.band?.label}, ${num(s.percentile, 0)}th percentile of a year`
+            : `${s.band?.label}, ${ordinal(s.percentile)} percentile of a year`
         }
         hint="A composite of realised and implied volatility, funding, stablecoin peg deviation, correlation and drawdown. The percentile is against its own last 365 days, which is the only thing that makes a score out of 100 mean anything."
       />

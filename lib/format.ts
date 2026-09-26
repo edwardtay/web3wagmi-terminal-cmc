@@ -97,3 +97,12 @@ export function signColor(n: number | null | undefined): string {
 export function clockTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-GB", { hour12: false });
 }
+
+/** "1st", "2nd", "23rd". A percentile printed as "63th" undermines the number. */
+export function ordinal(n: number): string {
+  const v = Math.round(n);
+  const mod100 = v % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${v}th`;
+  const last = v % 10;
+  return `${v}${last === 1 ? "st" : last === 2 ? "nd" : last === 3 ? "rd" : "th"}`;
+}

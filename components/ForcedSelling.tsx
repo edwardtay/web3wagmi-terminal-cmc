@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AsOf, BarCell, Loading, Meter, Panel, Section, Segmented, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
-import { pctPlain, usdCompact , NA} from "@/lib/format";
+import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { ForcedPayload } from "@/app/api/forced/route";
 
@@ -144,7 +144,7 @@ export function ForcedSelling() {
                   {concentrationWord(win.effectiveVenues, data.coverage.venues)}.{" "}
                   {win.scorePercentile != null ? (
                     <>
-                      That is the {win.scorePercentile}th percentile of concentration in the{" "}
+                      That is the {ordinal(win.scorePercentile)} percentile of concentration in the{" "}
                       {data.sample.n} samples collected since{" "}
                       {data.sample.from ? data.sample.from.slice(0, 10) : "polling began"}.
                     </>

@@ -1,7 +1,7 @@
 "use client";
 
 import { AsOf, BarCell, Loading, Panel, Section, TableWrap, Th, Unavailable } from "@/components/ui";
-import { pctPlain, usdCompact , NA} from "@/lib/format";
+import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { VolumePayload } from "@/app/api/volume/route";
 
@@ -153,7 +153,7 @@ export function VolumeQuality() {
                         {r.discarded != null ? pctPlain(100 * r.discarded) : NA}
                       </td>
                       <td className="num text-[var(--text3)]">
-                        {r.percentile != null ? `${r.percentile}th` : NA}
+                        {r.percentile != null ? ordinal(r.percentile) : NA}
                       </td>
                     </tr>
                   ))}

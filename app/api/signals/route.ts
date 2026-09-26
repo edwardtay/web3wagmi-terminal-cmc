@@ -12,6 +12,7 @@ import { ASSETS } from "@/lib/symbols";
 import { TOKENS } from "@/lib/netflow";
 import { GRAPH_HISTORY_TTL, aggregateBalances, readFlowSeries } from "@/lib/flow";
 import { annualisedVol, logReturns, percentileRank, stdev } from "@/lib/stats";
+import { ordinal } from "@/lib/format";
 
 // The dislocation queue: what just became abnormal, ranked. Every other panel
 // answers "what is the level". This one answers "what should I look at first",
@@ -40,15 +41,6 @@ export interface Signal {
   href: string;
   /** Direction, where one applies. Drives colour. */
   bias: "long" | "short" | "neutral";
-}
-
-/** "1st", "2nd", "23rd". A percentile printed as "2th" undermines the number. */
-function ordinal(n: number): string {
-  const v = Math.round(n);
-  const mod100 = v % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${v}th`;
-  const last = v % 10;
-  return `${v}${last === 1 ? "st" : last === 2 ? "nd" : last === 3 ? "rd" : "th"}`;
 }
 
 /** Map an excess above a threshold onto 0-100, saturating at `full`. */
