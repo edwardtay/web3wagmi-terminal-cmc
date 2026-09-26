@@ -131,7 +131,8 @@ export default async function CmcPage() {
         <>
           This terminal streamed Binance force orders for months, which is one venue&apos;s share of
           an event that happens across the whole market. CoinMarketCap publishes the cross-venue
-          figure and nobody else gives it away. This page is the whole CoinMarketCap build in one
+          figure in one call, beside open interest it flags when it does not trust it. This page is
+          the whole CoinMarketCap build in one
           place: the findings first, then the three live panels, then the evidence that the API is
           really being called, with the cost measured rather than asserted.
         </>

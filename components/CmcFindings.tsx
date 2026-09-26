@@ -9,7 +9,9 @@ import type { LeveragePayload } from "@/app/api/leverage/route";
 import type { VolumePayload } from "@/app/api/volume/route";
 
 // The four readings the CoinMarketCap work exists for, one line each, read live
-// from the routes the panels below use. The /cmc page opens with these so a
+// from the routes the panels below use. Led by the flagged open interest, which
+// is the finding a reader is least likely to know already: the field is in the
+// payload and not documented as a feature. The /cmc page opens with these so a
 // reader sees the findings before the machinery, and each one links to the
 // panel that carries it in full.
 
@@ -60,14 +62,6 @@ export function CmcFindings() {
 
   const findings: Finding[] = [
     {
-      figure: w?.streamedShare != null ? pctPlain(100 * w.streamedShare, 0) : NA,
-      claim: `of the last 24 hours of liquidations happened on Binance, the one venue the terminal's tape streams.`,
-      reference: w
-        ? `The other ${usdCompact(w.total * (1 - (w.streamedShare ?? 0)))} was spread over ${venues - 1} more venues.`
-        : "The liquidation feed did not answer.",
-      href: "#forced",
-    },
-    {
       figure: t && reported > 0 ? pctPlain((100 * t.flaggedOpenInterest) / reported, 0) : NA,
       claim: `of reported open interest on ${coins} majors sits on pairs CoinMarketCap itself flags as outliers.`,
       reference: !t
@@ -76,6 +70,14 @@ export function CmcFindings() {
           ? `Filtering them out moves Bitcoin's liquidated share of open interest by ${btcGap.toFixed(1)}x. Both figures are shown.`
           : "Both the filtered and unfiltered figures are shown.",
       href: "#leverage",
+    },
+    {
+      figure: w?.streamedShare != null ? pctPlain(100 * w.streamedShare, 0) : NA,
+      claim: `of the last 24 hours of liquidations happened on Binance, the one venue the terminal's tape streams.`,
+      reference: w
+        ? `The other ${usdCompact(w.total * (1 - (w.streamedShare ?? 0)))} was spread over ${venues - 1} more venues.`
+        : "The liquidation feed did not answer.",
+      href: "#forced",
     },
     {
       figure: t?.fundingLongShare != null ? pctPlain(100 * t.fundingLongShare, 0) : NA,

@@ -69,11 +69,13 @@ export default function MethodologyPage() {
             <span className="font-mono">eth_getBalance</span> reads for the exchange netflow panel.
           </Row>
           <Row term="CoinMarketCap">
-            The Pro API, which needs a key. Used for one thing the other sources here cannot give:
-            liquidation value aggregated across the nine derivatives venues it reports, broken out
-            per venue and per coin. Binance publishes force orders for Binance and Hyperliquid
-            publishes Hyperliquid, so the cross-venue total has no free substitute. CoinMarketCap
-            disclaims the accuracy of the venue data it relays.
+            The Pro API, which needs a key. Used for liquidation value aggregated across the nine
+            derivatives venues it reports, broken out per venue and per coin, and for open interest
+            with its own outlier flags. Binance publishes force orders for Binance and Hyperliquid
+            publishes Hyperliquid. Coinalyze&apos;s free API also serves liquidation history, one
+            symbol on one exchange per call; CoinMarketCap returns the market total, the venue
+            split and the coin split in one call each, which is what fits a free credit budget.
+            CoinMarketCap disclaims the accuracy of the venue data it relays.
           </Row>
           <Row term="CoinGecko">Total market capitalisation, volume, and Bitcoin and Ethereum dominance.</Row>
           <Row term="alternative.me">The Fear and Greed index, taken as published.</Row>
