@@ -4,9 +4,10 @@ type: skill
 title: Web3WAGMI Terminal
 description: >
   Read live crypto market state: what is abnormal right now, exchange flow with the
-  onchain liquidity that would absorb it, and perpetual funding. Use when answering
-  questions about crypto market conditions, selling pressure, exchange deposits and
-  withdrawals, positioning, or what changed.
+  onchain liquidity that would absorb it, perpetual funding, and liquidations across every
+  derivatives venue CoinMarketCap reports. Use when answering questions about crypto market
+  conditions, selling pressure, liquidations, exchange deposits and withdrawals, positioning,
+  or what changed.
 resource: https://terminal.web3wagmi.com
 tags: [crypto, markets, the-graph, exchange-flow, derivatives, onchain]
 ---
@@ -71,6 +72,19 @@ otherwise overstates it by a lot.
 
 Perpetual funding, annualised by each contract's actual settlement cadence rather than an
 assumed 8 hours. Positive means longs pay shorts.
+
+### `GET /api/forced`
+
+Liquidations across the nine derivatives venues CoinMarketCap reports, over `1h`, `4h` and
+`24h`, with the venue split and an effective venue count (inverse Herfindahl). `scorePercentile`
+ranks today's concentration against a series this terminal collects; it is null until thirty
+samples exist, which means unranked rather than ordinary.
+
+### `GET /api/leverage`
+
+Per coin, 24h liquidations over the open interest CoinMarketCap vouches for, with the unfiltered
+ratio beside it. `fundingLongShare` is the share of that open interest on venues where longs pay.
+It is a sign rather than a rate, because the feed omits each venue's settlement period.
 
 ### `POST /api/ask`
 

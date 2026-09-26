@@ -31,6 +31,7 @@ const DESK_LABEL: Record<string, string> = {
   dislocation_queue: "what changed",
   exchange_flow: "exchange flow",
   derivatives: "funding",
+  liquidations_all_venues: "liquidations",
   query_uniswap_subgraph: "uniswap",
   compare_protocols: "protocols",
   market_coverage: "coverage",

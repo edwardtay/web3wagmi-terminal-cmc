@@ -39,6 +39,7 @@ const TOOL_LABEL: Record<string, string> = {
   dislocation_queue: "what changed",
   exchange_flow: "exchange flow",
   derivatives: "funding",
+  liquidations_all_venues: "liquidations",
 };
 
 interface Item {

@@ -1,5 +1,7 @@
 import "server-only";
 import { REGIME_MEANING } from "@/app/api/derivs/route";
+import type { ForcedPayload } from "@/app/api/forced/route";
+import type { LeveragePayload } from "@/app/api/leverage/route";
 import { getJson } from "./http";
 import { readCoverage } from "./news";
 import { SCHEMA_HINT, runModelQuery } from "./subgraph";
@@ -734,6 +736,91 @@ export const TOOLS: ToolSpec[] = [
       };
     },
   },
+  {
+    name: "liquidations_all_venues",
+    description:
+      "Forced liquidations across all nine derivatives venues CoinMarketCap reports, over 1h, 4h and 24h: the total, the long and short split, which venues carried it, how concentrated it was against its own collected history, and per coin how much of the standing open interest a day's liquidations cleared, plus which way funding points across every venue CoinMarketCap lists. Use for any question about liquidations, forced selling or buying, cascades, where a flush happened, how much leverage was washed out, or whether positioning is crowded across the whole market.",
+    parameters: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: ["string", "null"],
+          description: "Base asset such as BTC. Null or omitted for the whole market.",
+        },
+      },
+      required: [],
+    },
+    async run(args, origin) {
+      // Both routes hold their own cache windows, so a question spends no
+      // CoinMarketCap credits. The metered reads happen on the routes' schedule
+      // whether anyone asks or not. Kept short: Groq's free tier allows 8,000
+      // tokens a minute, and a directional question reads four desks at once.
+      const [f, l] = await Promise.all([
+        readRoute<ForcedPayload>(origin, "/api/forced"),
+        readRoute<LeveragePayload>(origin, "/api/leverage"),
+      ]);
+      if (!f?.ok && !l?.ok) return { error: "The cross-venue liquidation desks are unavailable." };
+      const want = typeof args.symbol === "string" ? args.symbol.toUpperCase() : null;
+      const pct = (n: number | null | undefined, dp = 1) =>
+        n == null || !Number.isFinite(n) ? null : Number((n * 100).toFixed(dp));
+
+      const windows =
+        f?.ok && f.windows
+          ? Object.fromEntries(
+              Object.entries(f.windows).map(([w, r]) => [
+                w,
+                {
+                  total: usd(r.total),
+                  longsLiquidated: usd(r.long),
+                  shortsLiquidated: usd(r.short),
+                  largestVenue: r.largestVenue,
+                  largestVenueSharePercent: pct(r.largestShare),
+                  effectiveVenues: Number(r.effectiveVenues.toFixed(2)),
+                  venuesReporting: f.coverage.venues,
+                  // Null means the series is too short to rank against, not
+                  // that the reading is ordinary.
+                  concentrationPercentile: r.scorePercentile,
+                },
+              ])
+            )
+          : null;
+
+      const venues = (f?.venues ?? [])
+        .filter((v) => v.by["24h"].total > 0)
+        .slice(0, 4)
+        .map((v) => ({ venue: v.name, liquidated24h: usd(v.by["24h"].total), sharePercent: pct(v.by["24h"].share) }));
+
+      const coins = (f?.coins ?? [])
+        .filter((c) => !want || c.symbol === want)
+        .slice(0, want ? 1 : 5)
+        .map((c) => ({
+          asset: c.symbol,
+          liquidated24h: usd(c.by["24h"].total),
+          longs24h: usd(c.by["24h"].long),
+          shorts24h: usd(c.by["24h"].short),
+        }));
+
+      const leverage = (l?.rows ?? [])
+        .filter((r) => !want || r.symbol === want)
+        .map((r) => ({
+          asset: r.symbol,
+          clearedPercentOfOpenInterest: pct(r.clearedFraction, 3),
+          clearedPercentUnfiltered: pct(r.clearedFractionUnfiltered, 3),
+          longsPayingFundingPercentOfOpenInterest: pct(r.fundingLongShare, 0),
+        }));
+
+      return {
+        windows,
+        venues24h: venues,
+        coins,
+        leverageCleared: leverage,
+        marketLongsPayingFundingPercent: pct(l?.totals?.fundingLongShare, 0),
+        sample: f?.sample ?? null,
+        interpretationNotes:
+          "Source is CoinMarketCap, across nine derivatives venues, which is the whole universe of that feed rather than every venue that exists. A liquidated long is a forced sale and a liquidated short is a forced buy. Effective venues is the inverse Herfindahl of liquidation value: near 1 means one exchange's engine and thin book, near the venue count means the whole market repriced. concentrationPercentile ranks today's concentration against the series this terminal collects, so a high percentile means more concentrated than usual; null means too few samples to rank. The terminal's own liquidation tape streams Binance only, so Binance's share is what that tape would have shown. clearedPercentOfOpenInterest is a day's liquidations over the open interest CoinMarketCap vouches for: it ranks by how much of the book went, so a small coin can outrank Bitcoin. The unfiltered figure also counts pairs CoinMarketCap flags as outliers. longsPayingFunding is the share of vouched-for perpetual open interest on venues where funding is positive; 50 is an even split. It is a sign, not a rate: never convert it to an annualised figure or compare it with the derivatives tool's Binance and Hyperliquid rates.",
+      };
+    },
+  },
 ];
 
 // ---- the loop ------------------------------------------------------------
@@ -752,9 +839,10 @@ export const TOOLS: ToolSpec[] = [
 const PICKING = `You answer crypto market questions for a terminal by calling its tools. This turn you are only choosing which tools to call.
 
 - Call every tool whose data the question needs, then stop. Another turn writes the answer.
-- A directional question about pressure, risk or crowding needs more than one desk: read the dislocation queue and the derivatives board alongside exchange flow, because funding and open interest carry positioning that flow alone cannot see.
+- A directional question about pressure, risk or crowding needs more than one desk: read the dislocation queue, the derivatives board and liquidations_all_venues alongside exchange flow, because funding and open interest carry positioning that flow alone cannot see, and the derivatives board covers two venues where liquidations_all_venues covers every venue CoinMarketCap lists.
 - Selling pressure means coins arriving, positioning and liquidations. A stablecoin inflow is the other side of that picture, not an answer to it.
 - Asked why something moved or what happens next, also read market_coverage.
+- A question about liquidations, forced selling, a cascade, how much leverage was cleared, or crowding across the whole market is liquidations_all_venues. The derivatives tool only sees Binance and Hyperliquid, so a liquidation answer from it alone describes two venues as if they were the market.
 - The dislocation queue ranks what moved far from its own reference. It never holds a level. For a level, call the tool that has it.
 - A question comparing protocols, or asking which is largest, or how one stacks against another, is compare_protocols. It answers about protocols rather than tokens, and it spans the nine on the standardized schema.
 - A question about who earns, who is most profitable, which app or chain makes the most money, who returns the most to token holders, or who is earning more or less than usual is fee_leaders. Set rankBy to match the question: revenue for who keeps the most, holders for what reaches the token, growth for who is speeding up or slowing down against the window before. It covers the whole market. compare_protocols covers nine protocols, so ranking earnings from it would name the biggest of nine as the biggest of all: never answer an earnings question from it.
