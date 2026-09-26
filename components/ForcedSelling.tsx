@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AsOf, BarCell, ChangeChip, Loading, Panel, Section, Segmented, Sparkline, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
+import { AsOf, ChangeChip, Loading, Panel, Section, Segmented, Sparkline, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
 import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { ForcedPayload, LiqRead } from "@/app/api/forced/route";
@@ -81,6 +81,24 @@ function concentrationWord(effectiveVenues: number, venues: number): string {
   if (effectiveVenues <= venues * 0.25) return "Concentrated";
   if (effectiveVenues <= venues * 0.5) return "Uneven";
   return "Broad";
+}
+
+/**
+ * One row's liquidations as a bar: length is the row's total against the
+ * largest row, and the bar is split red for longs forced out and green for
+ * shorts. It replaced an unlabelled grey bar that only restated the total.
+ */
+function SplitBar({ long, short, max }: { long: number; short: number; max: number }) {
+  const total = long + short;
+  const width = max > 0 ? Math.max(3, (total / max) * 100) : 0;
+  return (
+    <div className="w-28" title={`longs ${usdCompact(long)} · shorts ${usdCompact(short)}`}>
+      <div className="flex h-2 gap-[2px]" style={{ width: `${width}%` }}>
+        {long > 0 && <div className="h-full rounded-sm" style={{ flex: long, background: LONG }} />}
+        {short > 0 && <div className="h-full rounded-sm" style={{ flex: short, background: SHORT }} />}
+      </div>
+    </div>
+  );
 }
 
 /** A percentile as a reader says it: the ends of the record are named, not "0th". */
@@ -377,7 +395,11 @@ export function ForcedSelling() {
                       hint="A long liquidated is a forced sale into the bid. Shorts are the other side."
                     />
                     <Th label="Shorts" sortKey="short" sort={venueSort} num />
-                    <Th label="" className="w-24" />
+                    <Th
+                      label="Longs vs shorts"
+                      className="w-28"
+                      hint="Bar length is the total liquidated, against the largest row. Red is longs forced out (forced selling), green is shorts forced out (forced buying)."
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -406,7 +428,7 @@ export function ForcedSelling() {
                       <td className="num" style={{ color: LONG }}>{usdCompact(r.long)}</td>
                       <td className="num" style={{ color: SHORT }}>{usdCompact(r.short)}</td>
                       <td className="num">
-                        <BarCell value={r.total} max={maxVenue} color={r.streamed ? "var(--gold)" : "var(--text3)"} />
+                        <SplitBar long={r.long} short={r.short} max={maxVenue} />
                       </td>
                     </tr>
                   ))}
@@ -456,7 +478,11 @@ export function ForcedSelling() {
                     <Th label={`Liquidated, ${w}`} sortKey="total" sort={coinSort} num />
                     <Th label="Longs" sortKey="long" sort={coinSort} num />
                     <Th label="Shorts" sortKey="short" sort={coinSort} num />
-                    <Th label="" className="w-24" />
+                    <Th
+                      label="Longs vs shorts"
+                      className="w-28"
+                      hint="Bar length is the total liquidated, against the largest row. Red is longs forced out (forced selling), green is shorts forced out (forced buying)."
+                    />
                     <Th
                       label={`Price, ${w}`}
                       sortKey="priceChange"
@@ -484,7 +510,7 @@ export function ForcedSelling() {
                       <td className="num" style={{ color: LONG }}>{usdCompact(r.long)}</td>
                       <td className="num" style={{ color: SHORT }}>{usdCompact(r.short)}</td>
                       <td className="num">
-                        <BarCell value={r.total} max={maxCoin} color="var(--text3)" />
+                        <SplitBar long={r.long} short={r.short} max={maxCoin} />
                       </td>
                       <td className="num">
                         <ChangeChip value={r.priceChange} />

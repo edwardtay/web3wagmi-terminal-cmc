@@ -44,9 +44,11 @@
      direction. They also have to differ from each other, which --gold and
      --accent do not: both are #fbbf24, so Binance and Bybit drew the same
      colour and the bar looked like one segment. */
-  --venue-1: #fbbf24;
-  --venue-2: #60a5fa;
-  --venue-3: #94a3b8;
+  /* Brand hues: Binance gold, Bybit orange, OKX (black, inverted to light
+     here), Hyperliquid teal. */
+  --venue-1: #f0b90b;
+  --venue-2: #fb6a1f;
+  --venue-3: #e5e7eb;
   --venue-4: #2dd4bf;
   --cyan: #38bdf8;
 
@@ -96,9 +98,14 @@
      segment of the bar painted transparent. The column showed its track and no
      data, which reads as a panel still loading rather than as a defect, and it
      was reported as one. */
-  --venue-1: #b45309;
-  --venue-2: #2563eb;
-  --venue-3: #64748b;
+  /* Each exchange in its own brand hue, darkened to hold 3:1 on white: Binance
+     gold, Bybit orange, OKX black, Hyperliquid teal. Validated with the dataviz
+     palette script on 2026-09-26: gold and orange separate at ΔE 16.3 for
+     normal vision but only 8.0 for deuteranopes, and OKX's black reads close
+     to grey, so the bars carry 2px gaps and a named legend as a second cue. */
+  --venue-1: #c29100;
+  --venue-2: #d9480f;
+  --venue-3: #1f2937;
   --venue-4: #0d9488;
   --cyan: #0284c7;
 

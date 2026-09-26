@@ -121,7 +121,7 @@ function VenueBar({ venues }: { venues: { venue: string; usd: number }[] }) {
     // is the same class of failure as a half filled desk: the page looked fine
     // and said nothing.
     <div
-      className="flex h-2.5 w-[88px] overflow-hidden rounded-sm bg-[var(--surface2)]"
+      className="flex h-2.5 w-[88px] gap-[2px] overflow-hidden rounded-sm bg-[var(--surface2)]"
       title={venues.map((v) => `${v.venue} ${usdCompact(v.usd, 1)} (${((v.usd / total) * 100).toFixed(0)}%)`).join(" · ")}
     >
       {venues.map((v) => (
