@@ -4,6 +4,10 @@ import { Panel, Section } from "@/components/ui";
 import { PageChrome } from "@/components/PageChrome";
 import { BUDGET, callLedger, cmcRaw, cmcReady, keyInfo, type CallRecord } from "@/lib/cmc";
 import { usdCompact } from "@/lib/format";
+import { CmcFindings } from "@/components/CmcFindings";
+import { ForcedSelling } from "@/components/ForcedSelling";
+import { LeverageCleared } from "@/components/LeverageCleared";
+import { VolumeQuality } from "@/components/VolumeQuality";
 
 // What CoinMarketCap runs on this terminal, and the evidence that it is really
 // being called.
@@ -127,57 +131,24 @@ export default async function CmcPage() {
         <>
           This terminal streamed Binance force orders for months, which is one venue&apos;s share of
           an event that happens across the whole market. CoinMarketCap publishes the cross-venue
-          figure and nobody else gives it away. This page is the evidence that it is really being
-          called, with the cost measured rather than asserted.
+          figure and nobody else gives it away. This page is the whole CoinMarketCap build in one
+          place: the findings first, then the three live panels, then the evidence that the API is
+          really being called, with the cost measured rather than asserted.
         </>
       }
     >
-      <Section title="The desks it runs" id="desks">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <Panel title="Forced selling">
-            <div className="space-y-2 text-[12px] leading-relaxed text-[var(--text2)]">
-              <p>
-                Liquidations across all nine derivatives venues CoinMarketCap reports, split by
-                venue and by coin, with how far the selling spread measured as an effective venue
-                count.
-              </p>
-              <p>
-                <Link href="/#forced" className="underline hover:text-[var(--text)]">
-                  the panel
-                </Link>
-              </p>
-            </div>
-          </Panel>
-          <Panel title="Leverage cleared">
-            <div className="space-y-2 text-[12px] leading-relaxed text-[var(--text2)]">
-              <p>
-                The same liquidations divided by the open interest behind them, which ranks by how
-                much of a book went rather than by dollar size. The denominator counts only the
-                market pairs CoinMarketCap vouches for.
-              </p>
-              <p>
-                <Link href="/#leverage" className="underline hover:text-[var(--text)]">
-                  the panel
-                </Link>
-              </p>
-            </div>
-          </Panel>
-          <Panel title="Volume quality">
-            <div className="space-y-2 text-[12px] leading-relaxed text-[var(--text2)]">
-              <p>
-                What venues claimed they traded against what CoinMarketCap counts. It is the only
-                free source publishing both, and the gap between the spot and derivatives slices is
-                the reading.
-              </p>
-              <p>
-                <Link href="/#volume" className="underline hover:text-[var(--text)]">
-                  the panel
-                </Link>
-              </p>
-            </div>
-          </Panel>
-        </div>
+      <Section title="What it found, live" id="findings">
+        <CmcFindings />
       </Section>
+
+      {/* The panels themselves, the same components the terminal renders, so
+          this page cannot drift from what it describes. Each carries its own
+          anchor, which the findings above link to. */}
+      <div className="mt-4 space-y-4">
+        <ForcedSelling />
+        <LeverageCleared />
+        <VolumeQuality />
+      </div>
 
       <div className="mt-4">
         <Section title="A real call, made while this page rendered" id="evidence">
