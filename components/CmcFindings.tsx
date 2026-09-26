@@ -57,6 +57,12 @@ export function CmcFindings() {
       ? btc.clearedFraction / btc.clearedFractionUnfiltered
       : null;
   const coins = leverage.data?.coverage.priced ?? 9;
+  const venueOi = t?.venueOpenInterest ?? [];
+  const oiTotal = venueOi.reduce((s, v) => s + v.openInterest, 0);
+  const feedNames = new Set((forced.data?.venues ?? []).map((v) => v.name));
+  const feedOiShare =
+    oiTotal > 0 ? venueOi.filter((v) => feedNames.has(v.venue)).reduce((s, v) => s + v.openInterest, 0) / oiTotal : null;
+  const binanceOiShare = oiTotal > 0 ? (venueOi.find((v) => v.venue === "Binance")?.openInterest ?? 0) / oiTotal : null;
   const spot = volume.data?.ok ? volume.data.rows.find((r) => r.key === "total") : null;
   const deriv = volume.data?.ok ? volume.data.rows.find((r) => r.key === "deriv") : null;
 
@@ -73,10 +79,12 @@ export function CmcFindings() {
     },
     {
       figure: w?.streamedShare != null ? pctPlain(100 * w.streamedShare, 0) : NA,
-      claim: `of the last 24 hours of liquidations happened on Binance, the one venue the terminal's tape streams.`,
-      reference: w
-        ? `The other ${usdCompact(w.total * (1 - (w.streamedShare ?? 0)))} was spread over ${venues - 1} more venues.`
-        : "The liquidation feed did not answer.",
+      claim: `of 24h liquidations on the ${venues} venues CoinMarketCap reports happened on Binance, the one venue the terminal's tape streams.`,
+      reference: !w
+        ? "The liquidation feed did not answer."
+        : feedOiShare != null && binanceOiShare != null
+          ? `Those ${venues} hold ${pctPlain(100 * feedOiShare, 0)} of vouched-for open interest; Binance alone holds ${pctPlain(100 * binanceOiShare, 0)}. CoinMarketCap is owned by Binance.`
+          : `The other ${usdCompact(w.total * (1 - (w.streamedShare ?? 0)))} was spread over ${venues - 1} more venues.`,
       href: "#forced",
     },
     {

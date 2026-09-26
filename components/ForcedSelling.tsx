@@ -5,6 +5,7 @@ import { AsOf, BarCell, ChangeChip, Loading, Meter, Panel, Section, Segmented, S
 import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { ForcedPayload, LiqRead } from "@/app/api/forced/route";
+import type { LeveragePayload } from "@/app/api/leverage/route";
 
 // Forced selling across every venue CoinMarketCap tracks, sitting directly
 // under the Binance force-order tape so the comparison is structural rather
@@ -73,6 +74,17 @@ function concentrationWord(effectiveVenues: number, venues: number): string {
 
 export function ForcedSelling() {
   const { data, loading, failed } = useApi<ForcedPayload>("/api/forced", 300);
+  // Open interest by venue across roughly fifty venues, from the leverage desk.
+  // It is how this panel measures its own feed: the liquidation data covers
+  // nine venues, and CoinMarketCap is owned by Binance, so the reader should see
+  // how much of the market those nine hold and how much of it is Binance.
+  const lev = useApi<LeveragePayload>("/api/leverage", 900);
+  const venueOi = lev.data?.ok ? lev.data.totals?.venueOpenInterest ?? [] : [];
+  const oiTotal = venueOi.reduce((s, v) => s + v.openInterest, 0);
+  const feedNames = new Set((data?.venues ?? []).map((v) => v.name));
+  const feedOiShare = oiTotal > 0 ? venueOi.filter((v) => feedNames.has(v.venue)).reduce((s, v) => s + v.openInterest, 0) / oiTotal : null;
+  const binanceOiShare = oiTotal > 0 ? (venueOi.find((v) => v.venue === "Binance")?.openInterest ?? 0) / oiTotal : null;
+  const oiVenueCount = venueOi.length;
   const [w, setW] = useState<Window>("24h");
 
   const win = data?.windows?.[w] ?? null;
@@ -212,6 +224,21 @@ export function ForcedSelling() {
                 this {w} window. The other{" "}
                 <span className="font-mono tabular-nums">{pctPlain(100 * (1 - win.streamedShare))}</span>,{" "}
                 {usdCompact(win.total * (1 - win.streamedShare))}, never reached it.
+                {feedOiShare != null && binanceOiShare != null && (
+                  <>
+                    {" "}The feed itself is partial. Its {data.coverage.venues} venues hold{" "}
+                    <span className="font-mono tabular-nums">{pctPlain(100 * feedOiShare, 0)}</span> of the
+                    open interest CoinMarketCap vouches for across {oiVenueCount} venues on {lev.data?.coverage.priced ?? 9}{" "}
+                    majors, and Binance alone holds{" "}
+                    <span className="font-mono tabular-nums">{pctPlain(100 * binanceOiShare, 0)}</span>. So
+                    Binance&apos;s share above is a share of the visible part of the market. If liquidations
+                    elsewhere track open interest, the tape saw about{" "}
+                    <span className="font-mono tabular-nums">
+                      {pctPlain(100 * win.streamedShare * feedOiShare, 0)}
+                    </span>{" "}
+                    of the whole. CoinMarketCap is owned by Binance, which is one more reason to show this.
+                  </>
+                )}
               </p>
             )}
 

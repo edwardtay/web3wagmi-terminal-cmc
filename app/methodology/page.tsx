@@ -123,6 +123,14 @@ export default function MethodologyPage() {
             interest when this was measured. The table states the pairs read against the pairs the
             coin has, so the shortfall is visible rather than assumed away.
           </Row>
+          <Row term="Feed coverage">
+            The liquidation feed covers nine venues. Open interest comes from a wider set, about fifty
+            venues per coin, so the panel measures its own feed: the share of vouched-for open interest
+            those nine hold, and Binance&apos;s share of all of it. On 26 September the nine held 44% and
+            Binance 23%, so Binance&apos;s near half of the feed&apos;s
+            liquidations is a share of the visible part of the market. CoinMarketCap is owned by
+            Binance, which is a further reason to state it.
+          </Row>
           <Row term="Squeeze or flush">
             Each coin&apos;s liquidations set against its Binance spot price over the same rolling
             window. A short squeeze is shorts carrying two thirds or more of the value while the

@@ -114,6 +114,13 @@ export interface LeveragePayload {
     liquidated24h: number;
     /** Funding breadth pooled across every covered coin, weighted by open interest. */
     fundingLongShare: number | null;
+    /**
+     * Vouched-for open interest per venue, summed across the covered coins,
+     * largest first. It is how the liquidation panel measures its own feed:
+     * the nine venues CoinMarketCap reports liquidations for held 44% of this
+     * on 26 September, and Binance alone 23%.
+     */
+    venueOpenInterest: { venue: string; openInterest: number }[];
   } | null;
   coverage: { requested: number; priced: number; reads: number; readFailures: number };
   credits: number;
@@ -166,6 +173,7 @@ export async function GET() {
   const rows: LeverageRow[] = [];
   let fundingLong = 0;
   let fundingShort = 0;
+  const venueOi = new Map<string, number>();
   for (const symbol of MATRIX) {
     const oi = await coinOpenInterest(symbol, opts);
     const liq = liqBySymbol.get(symbol);
@@ -196,6 +204,7 @@ export async function GET() {
     }
 
     const { clean, flagged, cleanPairs, flaggedPairs, byVenue } = cleanOpenInterest(oi.market_pairs);
+    for (const v of byVenue) venueOi.set(v.venue, (venueOi.get(v.venue) ?? 0) + v.openInterest);
     const funding = fundingBreadth(oi.market_pairs);
     const premium = perpPremium(oi.market_pairs);
     fundingLong += funding.longOi;
@@ -244,6 +253,9 @@ export async function GET() {
       flaggedOpenInterest: rows.reduce((s, r) => s + r.flaggedOpenInterest, 0),
       liquidated24h: rows.reduce((s, r) => s + r.liquidated24h, 0),
       fundingLongShare: fundingLong + fundingShort > 0 ? fundingLong / (fundingLong + fundingShort) : null,
+      venueOpenInterest: [...venueOi.entries()]
+        .map(([venue, openInterest]) => ({ venue, openInterest }))
+        .sort((a, b) => b.openInterest - a.openInterest),
     },
     coverage: { requested: MATRIX.length, priced, reads, readFailures },
     credits: calls.reduce((s, c) => s + c.credits, 0),

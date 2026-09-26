@@ -17,8 +17,9 @@ import { allTickers24h, windowTickers } from "@/lib/binance";
 //
 // The terminal has streamed Binance force orders since it shipped, which is one
 // venue's share of an event that happens across the whole market. On 2026-09-20
-// that share was 54.4% of the last twenty four hours, so the existing tape was
-// showing about half of what happened and saying nothing about the rest.
+// that share was 54.4% of the last twenty four hours across the nine venues this
+// feed covers. Those nine hold under half of the vouched-for open interest, so
+// the tape saw nearer a quarter of the market; the panel states that coverage.
 //
 // What this route exists to measure is how far the selling spread. A $300M day
 // on one venue is an exchange's liquidation engine and thin books; the same
