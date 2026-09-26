@@ -6,6 +6,8 @@ import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { ForcedPayload, LiqRead } from "@/app/api/forced/route";
 import type { LeveragePayload } from "@/app/api/leverage/route";
+import { LiqStory } from "@/components/LiqStory";
+import { SqueezeMap } from "@/components/SqueezeMap";
 
 // Forced selling across every venue CoinMarketCap tracks, sitting directly
 // under the Binance force-order tape so the comparison is structural rather
@@ -216,6 +218,21 @@ export function ForcedSelling() {
 
         {!loading && data?.ok && win && (
           <>
+            <LiqStory
+              w={w}
+              win={win}
+              venues={data.coverage.venues}
+              coins={data.coins}
+              pool={
+                lev.data?.ok && lev.data.totals
+                  ? {
+                      openInterest: lev.data.totals.openInterest,
+                      liquidated24h: lev.data.totals.liquidated24h,
+                      coins: lev.data.coverage.priced,
+                    }
+                  : null
+              }
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <div className="font-mono text-2xl font-bold tabular-nums text-[var(--text)]">
@@ -338,8 +355,11 @@ export function ForcedSelling() {
                       <td className="ident break-words">
                         {r.name}
                         {r.streamed && (
-                          <span className="ml-1.5 whitespace-nowrap text-[10px] text-[var(--text3)]">
-                            (on the tape)
+                          <span
+                            className="ml-1.5 whitespace-nowrap text-[10px] text-[var(--text3)]"
+                            title="The terminal's live liquidation feed, in the Liquidations section, streams this exchange only."
+                          >
+                            (streamed live)
                           </span>
                         )}
                       </td>
@@ -383,6 +403,7 @@ export function ForcedSelling() {
                   while its Binance price rose over the same rolling window; a flush is the mirror.
                 </p>
               )}
+              <SqueezeMap coins={data.coins} w={w} />
               <TableWrap maxHeight={420}>
                 <thead>
                   <tr>
