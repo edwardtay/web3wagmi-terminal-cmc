@@ -148,6 +148,14 @@ export default function MethodologyPage() {
             hours, so the rates cannot be annualised or averaged from this feed. A zero rate counts
             as flat and sits on neither side. 50% is an even split.
           </Row>
+          <Row term="Perp premium">
+            How far perpetuals trade above their index, in basis points, taken as the
+            open-interest-weighted median of each venue&apos;s reported basis across the same
+            vouched-for pairs. Basis is a price ratio with no settlement period, so unlike funding
+            it compares across venues directly. A median because single venues report broken
+            indices: on 26 September Kraken claimed a 20% and a 36% Bitcoin premium while every
+            other venue sat within a tenth of a percent. Readings past 1% are dropped and counted.
+          </Row>
           <Row term="Pool turnover and FDV to liquidity">
             Turnover is 24 hour pool volume divided by pool liquidity. FDV to liquidity is fully
             diluted value divided by pool liquidity. Both are arithmetic on the pool row and neither

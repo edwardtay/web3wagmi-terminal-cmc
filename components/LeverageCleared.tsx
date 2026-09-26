@@ -126,6 +126,13 @@ export function LeverageCleared() {
                     hint="Share of vouched-for perpetual open interest on venues where funding is positive, so longs pay shorts to hold. Read from the same call as the open interest, across every venue CoinMarketCap lists, where the funding desk reads Binance and Hyperliquid. The sign only: the feed omits each venue's settlement period, so the rates themselves are not comparable. Pair counts are long, short and flat."
                   />
                   <Th
+                    label="Premium"
+                    sortKey="premiumBps"
+                    sort={sort}
+                    num
+                    hint="How far perpetuals trade above their index, in basis points (hundredths of a percent): the open-interest-weighted median across the same vouched-for pairs. Unlike funding it carries no settlement period, so it compares across venues as it stands. Positive with longs paying is a consistent long lean; the two disagreeing is worth a look. Venues past 1% are treated as a broken index and dropped, and counted under the figure."
+                  />
+                  <Th
                     label="Pairs read"
                     sortKey="cleanPairs"
                     sort={sort}
@@ -158,6 +165,13 @@ export function LeverageCleared() {
                       {r.fundingLongShare != null ? pctPlain(100 * r.fundingLongShare, 0) : NA}
                       <div className="text-[10px] text-[var(--text3)]">
                         {r.fundingPairs.long} / {r.fundingPairs.short} / {r.fundingPairs.flat}
+                      </div>
+                    </td>
+                    <td className="num">
+                      {r.premiumBps != null ? `${r.premiumBps >= 0 ? "+" : ""}${r.premiumBps.toFixed(1)} bp` : NA}
+                      <div className="text-[10px] text-[var(--text3)]">
+                        {r.premiumPairs.used} pairs
+                        {r.premiumPairs.dropped > 0 && `, ${r.premiumPairs.dropped} dropped`}
                       </div>
                     </td>
                     <td className="num text-[var(--text3)]">

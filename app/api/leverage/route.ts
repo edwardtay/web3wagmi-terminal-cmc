@@ -4,6 +4,7 @@ import {
   FAILURE_TEXT,
   cleanOpenInterest,
   fundingBreadth,
+  perpPremium,
   cmcReady,
   coinLiquidations,
   coinOpenInterest,
@@ -91,6 +92,14 @@ export interface LeverageRow {
    */
   fundingLongShare: number | null;
   fundingPairs: { long: number; short: number; flat: number };
+  /**
+   * Perp premium over the index, open-interest-weighted median across clean
+   * perpetual pairs, in basis points. Comparable across venues, unlike the
+   * funding rate, because basis carries no settlement period.
+   */
+  premiumBps: number | null;
+  /** Pairs behind that median, and pairs dropped as a broken index (past 1%). */
+  premiumPairs: { used: number; dropped: number };
 }
 
 export interface LeveragePayload {
@@ -180,12 +189,15 @@ export async function GET() {
         topVenues: [],
         fundingLongShare: null,
         fundingPairs: { long: 0, short: 0, flat: 0 },
+        premiumBps: null,
+        premiumPairs: { used: 0, dropped: 0 },
       });
       continue;
     }
 
     const { clean, flagged, cleanPairs, flaggedPairs, byVenue } = cleanOpenInterest(oi.market_pairs);
     const funding = fundingBreadth(oi.market_pairs);
+    const premium = perpPremium(oi.market_pairs);
     fundingLong += funding.longOi;
     fundingShort += funding.shortOi;
     const liquidated = liq?.total ?? 0;
@@ -205,6 +217,8 @@ export async function GET() {
       topVenues: byVenue.slice(0, 5),
       fundingLongShare: funding.longShare,
       fundingPairs: funding.pairs,
+      premiumBps: premium.bps,
+      premiumPairs: { used: premium.venues, dropped: premium.dropped },
     });
   }
 

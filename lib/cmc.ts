@@ -518,7 +518,12 @@ export interface MarketPair {
    * funding rate appears. It is a fraction per settlement period and the period
    * is not reported: Hyperliquid prints hourly, most venues every eight hours.
    */
-  exchange_reported_quotes?: { funding_rate?: number | null; open_interest?: number | null }[];
+  exchange_reported_quotes?: {
+    funding_rate?: number | null;
+    open_interest?: number | null;
+    /** (perp price - index price) / index price, as a fraction. */
+    index_basis?: number | null;
+  }[];
 }
 
 /**
@@ -639,6 +644,47 @@ export function fundingBreadth(pairs: MarketPair[]): {
 
   const paying = longOi + shortOi;
   return { longShare: paying > 0 ? longOi / paying : null, longOi, shortOi, pairs: counts };
+}
+
+/**
+ * The perpetual premium over the index across every venue CMC vouches for, as
+ * the open-interest-weighted median, in basis points.
+ *
+ * Unlike the funding rate, basis is a price ratio and carries no settlement
+ * period, so it compares across venues as it stands. A median because single
+ * venues report nonsense: probed 2026-09-26, Kraken's two BTC pairs claimed a
+ * 20% and a 36% premium while every other venue sat within a tenth of a
+ * percent. Readings past 1% are treated as a broken index and dropped, and
+ * counted, so the panel can say how many.
+ */
+export function perpPremium(pairs: MarketPair[]): { bps: number | null; venues: number; dropped: number } {
+  const rows: { basis: number; oi: number }[] = [];
+  let dropped = 0;
+  for (const p of pairs) {
+    if (p.category !== "perpetual") continue;
+    if (p.outlier_detected || p.exclusions?.length) continue;
+    const oi = p.quotes?.[0]?.open_interest ?? 0;
+    const basis = p.exchange_reported_quotes?.[0]?.index_basis;
+    if (!oi || basis == null || !Number.isFinite(basis)) continue;
+    if (Math.abs(basis) > 0.01) {
+      dropped += 1;
+      continue;
+    }
+    rows.push({ basis, oi });
+  }
+  if (!rows.length) return { bps: null, venues: 0, dropped };
+  rows.sort((a, b) => a.basis - b.basis);
+  const half = rows.reduce((s, r) => s + r.oi, 0) / 2;
+  let run = 0;
+  let median = rows[rows.length - 1].basis;
+  for (const r of rows) {
+    run += r.oi;
+    if (run >= half) {
+      median = r.basis;
+      break;
+    }
+  }
+  return { bps: median * 10_000, venues: rows.length, dropped };
 }
 
 // ---- the key ledger ------------------------------------------------------
