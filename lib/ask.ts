@@ -69,7 +69,17 @@ let keyCursor = 0;
  * wrong and sending the same thing elsewhere will fail the same way.
  */
 const FALLBACK_BASE = process.env.LLM_FALLBACK_BASE_URL;
-const FALLBACK_KEY = process.env.LLM_FALLBACK_KEY;
+/**
+ * Comma separated, like the primary keys. Groq meters tokens per minute per
+ * model, so the fallback can be Groq's other models on the same keys: the 8,000
+ * a minute that one multi-tool question can exhaust on the primary model is a
+ * separate allowance on each of them. The OpenCode gateway this used to point
+ * at began refusing its free tier outside OpenCode on 2026-09-26, with 403.
+ */
+const FALLBACK_KEYS = (process.env.LLM_FALLBACK_KEY ?? "")
+  .split(",")
+  .map((k) => k.trim())
+  .filter(Boolean);
 /**
  * Fallback models, best first, comma separated.
  *
@@ -1054,16 +1064,21 @@ async function tryFallbacks(
   prefer?: string,
   maxTokens = 800
 ): Promise<{ message?: ChatMessage; model?: string; truncated?: boolean }> {
-  if (!FALLBACK_BASE || !FALLBACK_KEY) return {};
+  if (!FALLBACK_BASE || !FALLBACK_KEYS.length) return {};
   const order = prefer ? [prefer, ...FALLBACK_MODELS.filter((m) => m !== prefer)] : FALLBACK_MODELS;
   for (const model of order) {
     // A longer budget than the primary. Free models are slower, and the point
     // of this path is that it runs when the fast one is gone, so timing it out
     // at the primary's budget defeats it. The first model tried here answered
     // correctly in 52 seconds and was cut off at 45.
-    const res = await callProvider(FALLBACK_BASE, FALLBACK_KEY, model, messages, withTools, 75_000, maxTokens);
-    if (res.message) return { message: res.message, model, truncated: res.truncated };
-    console.error(`[ask] fallback ${model} ${res.status}: ${res.detail}`);
+    for (const [i, key] of FALLBACK_KEYS.entries()) {
+      const res = await callProvider(FALLBACK_BASE, key, model, messages, withTools, 75_000, maxTokens);
+      if (res.message) return { message: res.message, model, truncated: res.truncated };
+      console.error(`[ask] fallback ${model} key ${i + 1}/${FALLBACK_KEYS.length} ${res.status}: ${res.detail}`);
+      // Only a rate limit is worth another key. Anything else is the model or
+      // the request, and every key would get the same answer.
+      if (res.status !== 429) break;
+    }
   }
   return {};
 }
