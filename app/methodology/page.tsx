@@ -121,6 +121,21 @@ export default function MethodologyPage() {
             interest when this was measured. The table states the pairs read against the pairs the
             coin has, so the shortfall is visible rather than assumed away.
           </Row>
+          <Row term="Squeeze or flush">
+            Each coin&apos;s liquidations set against its Binance spot price over the same rolling
+            window. A short squeeze is shorts carrying two thirds or more of the value while the
+            price rose; a long flush is the mirror. When one side carried two thirds but the price
+            moved less than 0.2% in an hour, 0.4% in four or 1% in a day, the forced orders were
+            absorbed. The band scales with the square root of the window, the way a typical move
+            does. Neither side at two thirds reads two-sided, and a window under $250K is left
+            blank because a few positions decide its split.
+          </Row>
+          <Row term="Liquidation alerts">
+            The dislocation queue fires when a 1h or 4h liquidation total reaches the 90th
+            percentile of the series this desk collects, and when one venue&apos;s share reaches the
+            95th percentile of concentration in a window at least as heavy as the median. A
+            concentrated quiet hour is a handful of positions on one book, so size is required too.
+          </Row>
           <Row term="Longs paying">
             The share of that same vouched-for perpetual open interest sitting on venues where
             funding is positive, so longs pay shorts to hold. It comes from the call that supplies

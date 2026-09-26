@@ -12,7 +12,8 @@ import { ASSETS } from "@/lib/symbols";
 import { TOKENS } from "@/lib/netflow";
 import { GRAPH_HISTORY_TTL, aggregateBalances, readFlowSeries } from "@/lib/flow";
 import { annualisedVol, logReturns, percentileRank, stdev } from "@/lib/stats";
-import { ordinal } from "@/lib/format";
+import { ordinal, usdCompact } from "@/lib/format";
+import type { ForcedPayload } from "@/app/api/forced/route";
 
 // The dislocation queue: what just became abnormal, ranked. Every other panel
 // answers "what is the level". This one answers "what should I look at first",
@@ -25,7 +26,7 @@ import { ordinal } from "@/lib/format";
 
 export const revalidate = 300;
 
-export type SignalKind = "funding" | "move" | "oi" | "vol-carry" | "peg" | "flow" | "unlock";
+export type SignalKind = "funding" | "move" | "oi" | "vol-carry" | "peg" | "flow" | "unlock" | "liquidation";
 
 export interface Signal {
   id: string;
@@ -451,6 +452,58 @@ export async function GET() {
       href: "/#funding",
       bias: dir === "long" ? "short" : "long",
     });
+  }
+
+  // ---- 8. Liquidations across every venue, against their own history -------
+  // Two readings off /api/forced, both ranked against the series this terminal
+  // collects because CoinMarketCap publishes none. Read over loopback like the
+  // unlocks, so the scan spends no credits of its own: the route's cache
+  // window decides the spend. Under thirty samples both percentiles are null
+  // and nothing fires, which is the rule rather than a gap.
+  const forced = await getJson<ForcedPayload>(`http://127.0.0.1:${process.env.PORT ?? 3000}/api/forced`, {
+    revalidate: 300,
+    timeout: 30_000,
+  });
+  if (forced?.ok && forced.windows) {
+    for (const w of ["1h", "4h"] as const) {
+      const r = forced.windows[w];
+      if (r.totalPercentile != null && r.totalPercentile >= 90) {
+        // The side that carried it sets the direction: forced selling when
+        // longs dominate, forced buying when shorts do.
+        const longHeavy = r.long >= r.short;
+        signals.push({
+          id: `liq-total-${w}`,
+          kind: "liquidation",
+          severity: Math.round(sev(r.totalPercentile, 90, 100)),
+          symbol: null,
+          headline: `Liquidations running heavy: ${usdCompact(r.total)} in ${w} across ${forced.coverage.venues} venues`,
+          detail: longHeavy
+            ? "Longs carried most of it, so this is forced selling spread across the market rather than one book."
+            : "Shorts carried most of it, so this is forced buying: a squeeze rather than a flush.",
+          evidence: `${ordinal(r.totalPercentile)} percentile of ${w} totals in ${forced.sample.n} collected samples; longs ${usdCompact(r.long)}, shorts ${usdCompact(r.short)}`,
+          href: "/#forced",
+          bias: longHeavy ? "short" : "long",
+        });
+      }
+      // Concentration alone fires on quiet hours: $2.5M with two thirds on
+      // Binance ranked 99th for concentration and 9th for size. A handful of
+      // positions on one book is not a cascade, so it needs a window at least
+      // as heavy as the median one too.
+      if (r.scorePercentile != null && r.scorePercentile >= 95 && (r.totalPercentile ?? 0) >= 50) {
+        signals.push({
+          id: `liq-conc-${w}`,
+          kind: "liquidation",
+          severity: Math.round(sev(r.scorePercentile, 95, 100)),
+          symbol: null,
+          headline: `One venue's cascade: ${r.largestVenue} carried ${Math.round(100 * r.largestShare)}% of ${w} liquidations`,
+          detail:
+            "More concentrated than almost every reading on record. That is one exchange's engine and book, and it says less about the market than the dollar figure suggests.",
+          evidence: `${r.effectiveVenues.toFixed(1)} effective venues of ${forced.coverage.venues}, ${ordinal(r.scorePercentile)} percentile of concentration in ${forced.sample.n} samples`,
+          href: "/#forced",
+          bias: "neutral",
+        });
+      }
+    }
   }
 
   signals.sort((a, b) => b.severity - a.severity);

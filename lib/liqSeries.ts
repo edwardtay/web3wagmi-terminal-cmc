@@ -47,6 +47,14 @@ export interface SeriesPoint {
   h1: number | null;
   h4: number | null;
   h24: number | null;
+  /**
+   * Liquidation value summed across venues, per window, in USD. Optional
+   * because it arrived after the concentration fields; the committed samples
+   * carry it per venue, so the base series has it back to the first sample.
+   */
+  t1?: number | null;
+  t4?: number | null;
+  t24?: number | null;
 }
 
 export interface Series {
@@ -152,6 +160,11 @@ async function baseLiq(): Promise<Series> {
         h1: concentration(s.ex.map((x) => x.h1?.[0] ?? 0))?.score ?? null,
         h4: concentration(s.ex.map((x) => x.h4?.[0] ?? 0))?.score ?? null,
         h24: concentration(s.ex.map((x) => x.h24?.[0] ?? 0))?.score ?? null,
+        t1: s.ex.reduce((sum, x) => sum + (x.h1?.[0] ?? 0), 0),
+        // Samples from before the sampler read 4h have no h4 at all; a zero
+        // there would read as the quietest four hours on record.
+        t4: s.ex.some((x) => x.h4) ? s.ex.reduce((sum, x) => sum + (x.h4?.[0] ?? 0), 0) : null,
+        t24: s.ex.reduce((sum, x) => sum + (x.h24?.[0] ?? 0), 0),
       });
     }
   }

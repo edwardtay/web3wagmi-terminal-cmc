@@ -13,7 +13,7 @@ import { Section, Panel, Loading, AsOf, Segmented } from "./ui";
 // type still typechecks, so both new kinds rendered a blank badge rather than a
 // compile error. Adding a kind to the route means adding it in all three places
 // below.
-type SignalKind = "funding" | "move" | "oi" | "vol-carry" | "peg" | "flow" | "unlock";
+type SignalKind = "funding" | "move" | "oi" | "vol-carry" | "peg" | "flow" | "unlock" | "liquidation";
 
 interface Signal {
   id: string;
@@ -43,6 +43,7 @@ const KIND_LABEL: Record<SignalKind, string> = {
   peg: "peg",
   flow: "exchange flow",
   unlock: "supply",
+  liquidation: "liquidations",
 };
 
 /**
@@ -65,6 +66,9 @@ const KIND_GLYPH: Record<SignalKind, string> = {
   peg: "\u25AC",
   flow: "\u25B6",
   unlock: "\u25A0",
+  // Pointing down and hollow: a position forced out, distinct from the solid
+  // upward triangle a price move wears.
+  liquidation: "\u25BD",
 };
 
 const KIND_COLOR: Record<SignalKind, string> = {
@@ -75,6 +79,7 @@ const KIND_COLOR: Record<SignalKind, string> = {
   peg: "var(--neg)",
   flow: "var(--pos)",
   unlock: "var(--neg)",
+  liquidation: "var(--gold)",
 };
 
 

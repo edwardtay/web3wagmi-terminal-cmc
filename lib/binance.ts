@@ -76,6 +76,33 @@ export async function allTickers24h(revalidate = 60): Promise<Ticker24h[] | null
   return getJson<Ticker24h[]>(`${SPOT}/api/v3/ticker/24hr`, { revalidate, timeout: 15000, memo: true });
 }
 
+export interface WindowTicker {
+  symbol: string;
+  openPrice: string;
+  lastPrice: string;
+}
+
+/**
+ * Rolling-window spot stats for a list of symbols, one request.
+ *
+ * `windowSize` is Binance's own rolling window ("1h", "4h"), which lines up
+ * with CoinMarketCap's rolling liquidation windows rather than with candle
+ * boundaries. One unknown symbol fails the whole request with 400, so filter
+ * the list against the 24h board first. At most 100 symbols.
+ */
+export async function windowTickers(
+  symbols: string[],
+  windowSize: string,
+  revalidate = 60
+): Promise<WindowTicker[] | null> {
+  if (!symbols.length) return [];
+  const list = encodeURIComponent(JSON.stringify(symbols.slice(0, 100)));
+  return getJson<WindowTicker[]>(`${SPOT}/api/v3/ticker?symbols=${list}&windowSize=${windowSize}&type=MINI`, {
+    revalidate,
+    timeout: 15000,
+  });
+}
+
 export interface PremiumIndex {
   symbol: string;
   markPrice: string;

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AsOf, BarCell, Loading, Meter, Panel, Section, Segmented, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
+import { AsOf, BarCell, ChangeChip, Loading, Meter, Panel, Section, Segmented, Sparkline, TableWrap, Th, Unavailable, useSort } from "@/components/ui";
 import { pctPlain, usdCompact, ordinal, NA } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
-import type { ForcedPayload } from "@/app/api/forced/route";
+import type { ForcedPayload, LiqRead } from "@/app/api/forced/route";
 
 // Forced selling across every venue CoinMarketCap tracks, sitting directly
 // under the Binance force-order tape so the comparison is structural rather
@@ -36,6 +36,26 @@ interface CoinRowView {
   total: number;
   long: number;
   short: number;
+  priceChange: number | null;
+  read: LiqRead | null;
+}
+
+/** The words and chip for each read. Colour follows the forced flow: a squeeze is forced buying. */
+const READ: Record<LiqRead, { label: string; chip: string }> = {
+  squeeze: { label: "Short squeeze", chip: "chip-pos" },
+  flush: { label: "Long flush", chip: "chip-neg" },
+  against: { label: "Against the move", chip: "chip-flat" },
+  absorbed: { label: "Absorbed", chip: "chip-flat" },
+  "two-sided": { label: "Two-sided", chip: "chip-flat" },
+};
+
+/** "SOL, XRP and 2 more", largest first. */
+function names(rows: CoinRowView[]): string {
+  const top = rows.slice(0, 3).map((r) => r.symbol);
+  const rest = rows.length - top.length;
+  if (rest > 0) return `${top.join(", ")} and ${rest} more`;
+  if (top.length > 1) return `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}`;
+  return top[0] ?? "";
 }
 
 /**
@@ -77,6 +97,10 @@ export function ForcedSelling() {
 
   const maxVenue = Math.max(0, ...venueRows.map((r) => r.total));
   const maxCoin = Math.max(0, ...coinRows.map((r) => r.total));
+  const byTotal = [...coinRows].sort((a, b) => b.total - a.total);
+  const squeezes = byTotal.filter((r) => r.read === "squeeze");
+  const flushes = byTotal.filter((r) => r.read === "flush");
+  const readable = coinRows.filter((r) => r.read != null).length;
 
   return (
     <Section
@@ -155,13 +179,35 @@ export function ForcedSelling() {
                       feed publishes no history, so the series only grows forward.
                     </>
                   )}
+                  {win.totalPercentile != null && (
+                    <>
+                      {" "}By size, the {usdCompact(win.total)} total is the{" "}
+                      {ordinal(win.totalPercentile)} percentile of {w} windows.
+                    </>
+                  )}
                 </div>
+                {(data.history?.[w]?.score.length ?? 0) >= 2 && (
+                  <div className="mt-3">
+                    <div className="mb-1 text-[10px] uppercase tracking-[0.08em] text-[var(--text3)]">
+                      Concentration, last {data.history[w].score.length} readings
+                    </div>
+                    <Sparkline
+                      data={[...data.history[w].score, win.score]}
+                      width={220}
+                      height={36}
+                      stroke="var(--text3)"
+                    />
+                    <div className="mt-1 text-[10px] text-[var(--text3)]">
+                      Collected by this terminal. CoinMarketCap publishes no liquidation history.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {win.streamedShare != null && (
               <p className="mt-4 border-t border-[var(--border)] pt-3 text-[11px] leading-relaxed text-[var(--text2)]">
-                The force-order tape above covers Binance, which carried{" "}
+                The terminal&apos;s force-order tape covers Binance only, which carried{" "}
                 <span className="font-mono tabular-nums">{pctPlain(100 * win.streamedShare)}</span> of
                 this {w} window. The other{" "}
                 <span className="font-mono tabular-nums">{pctPlain(100 * (1 - win.streamedShare))}</span>,{" "}
@@ -197,7 +243,7 @@ export function ForcedSelling() {
                         {r.name}
                         {r.streamed && (
                           <span className="ml-1.5 whitespace-nowrap text-[10px] text-[var(--text3)]">
-                            (streamed above)
+                            (on the tape)
                           </span>
                         )}
                       </td>
@@ -218,6 +264,29 @@ export function ForcedSelling() {
               <h4 className="panel-h mb-2 font-display text-[11px] font-bold uppercase tracking-[0.09em]">
                 By coin
               </h4>
+              {readable > 0 && (
+                <p className="mb-2 text-[11px] leading-relaxed text-[var(--text2)]">
+                  {squeezes.length === 0 && flushes.length === 0 ? (
+                    <>
+                      Over {w}, no coin shows one side forced out in the direction of its move. The
+                      liquidations are two-sided or ran against the move.
+                    </>
+                  ) : (
+                    <>
+                      Over {w},{" "}
+                      {squeezes.length > 0 && (
+                        <>
+                          shorts were squeezed on {names(squeezes)}
+                          {flushes.length > 0 ? " and " : "."}
+                        </>
+                      )}
+                      {flushes.length > 0 && <>longs were flushed on {names(flushes)}.</>}
+                    </>
+                  )}{" "}
+                  A squeeze means shorts carried at least two thirds of the coin&apos;s liquidations
+                  while its Binance price rose over the same rolling window; a flush is the mirror.
+                </p>
+              )}
               <TableWrap maxHeight={420}>
                 <thead>
                   <tr>
@@ -233,6 +302,19 @@ export function ForcedSelling() {
                     <Th label="Longs" sortKey="long" sort={coinSort} num />
                     <Th label="Shorts" sortKey="short" sort={coinSort} num />
                     <Th label="" className="w-24" />
+                    <Th
+                      label={`Price, ${w}`}
+                      sortKey="priceChange"
+                      sort={coinSort}
+                      num
+                      hint="Binance spot, USDT pair, over the same rolling window as the liquidations. Blank when Binance does not list the coin."
+                    />
+                    <Th
+                      label="Read"
+                      sortKey="read"
+                      sort={coinSort}
+                      hint="The losing side set against the move. Short squeeze: shorts carried two thirds or more while the price rose. Long flush: the mirror. Against the move: the side the move favoured was the one liquidated, so a wick went the other way first. Absorbed: one side was forced out and the price moved less than 0.2% an hour, 0.4% over four hours or 1% a day, so the orders were taken without moving it. Two-sided: neither side carried two thirds. Blank under $250K in the window, where a few positions decide the split."
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -248,6 +330,20 @@ export function ForcedSelling() {
                       <td className="num" style={{ color: SHORT }}>{usdCompact(r.short)}</td>
                       <td className="num">
                         <BarCell value={r.total} max={maxCoin} color="var(--text3)" />
+                      </td>
+                      <td className="num">
+                        <ChangeChip value={r.priceChange} />
+                      </td>
+                      <td>
+                        {r.read ? (
+                          <span
+                            className={`${READ[r.read].chip} whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold`}
+                          >
+                            {READ[r.read].label}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--text3)]">{NA}</span>
+                        )}
                       </td>
                     </tr>
                   ))}

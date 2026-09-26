@@ -11,6 +11,7 @@ import {
   type CmcFailure,
 } from "@/lib/cmc";
 import { liqSeries, percentile, recordLiq } from "@/lib/liqSeries";
+import { allTickers24h, windowTickers } from "@/lib/binance";
 
 // Forced selling across every venue CoinMarketCap tracks.
 //
@@ -54,6 +55,9 @@ const CACHE = 1200;
 const WINDOWS = ["1h", "4h", "24h"] as const;
 type Window = (typeof WINDOWS)[number];
 
+/** Readings of the collected series sent to the panel for its sparkline. */
+const HISTORY_POINTS = 60;
+
 /** Coins kept in the payload. The feed returns 100 of ~918 and the tail is noise. */
 const KEEP_COINS = 30;
 
@@ -79,6 +83,8 @@ interface WindowRead extends Split {
   score: number;
   /** Where that score sits in the collected series, or null when the sample is too short. */
   scorePercentile: number | null;
+  /** Where the window's total sits in the same series. Null under thirty samples. */
+  totalPercentile: number | null;
   /** What the terminal's Binance-only tape would have shown for this window. */
   streamedShare: number | null;
 }
@@ -92,12 +98,34 @@ interface VenueRow {
   streamed: boolean;
 }
 
+/**
+ * What a coin's liquidations say once set beside its price over the same window.
+ *
+ * - `squeeze`: shorts carried most of it while the price rose. The forced
+ *   buying is part of why it rose.
+ * - `flush`: longs carried most of it while the price fell.
+ * - `against`: the side that lost is the side the move favoured, longs
+ *   liquidated into a rise or shorts into a fall. The window's net move hides
+ *   a wick that went the other way first.
+ * - `absorbed`: one side carried two thirds and the price barely moved, so the
+ *   forced orders were taken without moving it.
+ * - `two-sided`: neither side carried two thirds, so no side was forced out.
+ */
+export type LiqRead = "squeeze" | "flush" | "against" | "absorbed" | "two-sided";
+
+interface CoinWindow extends Split {
+  /** Binance spot price change over the same rolling window, in percent. Null when Binance does not list it. */
+  priceChange: number | null;
+  /** Null below the noise floor or without a price. */
+  read: LiqRead | null;
+}
+
 interface CoinRow {
   id: number;
   symbol: string;
   name: string;
   rank: number;
-  by: Record<Window, Split>;
+  by: Record<Window, CoinWindow>;
 }
 
 export interface ForcedPayload {
@@ -110,6 +138,11 @@ export interface ForcedPayload {
   coins: CoinRow[];
   /** The collected series behind the percentiles. A percentile with no stated sample is a decoration. */
   sample: { n: number; from: string | null; to: string | null };
+  /**
+   * The series itself, newest last, capped, so the panel can draw what it
+   * ranks against. Concentration score and total per window.
+   */
+  history: Record<Window, { score: number[]; total: number[] }>;
   /**
    * What this refresh actually managed to read.
    *
@@ -138,10 +171,72 @@ function empty(failure: string | null): ForcedPayload {
     venues: [],
     coins: [],
     sample: { n: 0, from: null, to: null },
+    history: { "1h": { score: [], total: [] }, "4h": { score: [], total: [] }, "24h": { score: [], total: [] } },
     coverage: { venues: 0, coinsReturned: 0, coinsTotal: null, reads: 0, readFailures: 0 },
     credits: 0,
     budget: { monthly: BUDGET.monthly(revalidate, 3), routeAllowance: BUDGET.routeAllowance() },
   };
+}
+
+/** Share one side must carry before the window counts as that side being forced out. */
+const DOMINANT = 2 / 3;
+
+/**
+ * Below this a window is a handful of positions, and one of them decides the
+ * split. Most coins in the table clear it on 24h; on 1h many do not, and a
+ * label on $40k would be reading noise.
+ */
+const READ_FLOOR_USD = 250_000;
+
+/**
+ * A move smaller than this, in percent, is flat for the window. One percent a
+ * day scaled by the square root of time, since a move's typical size grows with
+ * the root of the window. Without it BTC read "against the move" on a +0.04%
+ * day with longs carrying 68%, which is a held price, not a reversal.
+ */
+const FLAT_PCT: Record<Window, number> = { "1h": 0.2, "4h": 0.4, "24h": 1 };
+
+function classify(s: Split, priceChange: number | null, w: Window): LiqRead | null {
+  if (priceChange == null || s.total < READ_FLOOR_USD) return null;
+  const longShare = s.long / s.total;
+  const shortShare = s.short / s.total;
+  if (longShare < DOMINANT && shortShare < DOMINANT) return "two-sided";
+  if (Math.abs(priceChange) < FLAT_PCT[w]) return "absorbed";
+  const longsOut = longShare >= DOMINANT;
+  const rose = priceChange > 0;
+  if (longsOut) return rose ? "against" : "flush";
+  return rose ? "squeeze" : "against";
+}
+
+/**
+ * Binance spot price change per base symbol for each window, keyed by window.
+ *
+ * Free and keyless, so it adds nothing to the CoinMarketCap budget. The 24h
+ * figure comes from the full board the other routes already hold in process;
+ * 1h and 4h are one windowed request each for the listed symbols. Spot rather
+ * than perps because the full spot board is what tells us which symbols exist,
+ * and an unknown symbol fails the windowed request outright.
+ */
+async function priceMoves(bases: string[]): Promise<Record<Window, Map<string, number>>> {
+  const out = { "1h": new Map(), "4h": new Map(), "24h": new Map() } as Record<Window, Map<string, number>>;
+  const board = await allTickers24h(revalidate);
+  if (!board) return out;
+  const listed = new Map(board.map((t) => [t.symbol, t]));
+  const pairs = bases.map((b) => [b, `${b}USDT`] as const).filter(([, sym]) => listed.has(sym));
+  for (const [base, sym] of pairs) {
+    const pct = Number(listed.get(sym)?.priceChangePercent);
+    if (Number.isFinite(pct)) out["24h"].set(base, pct);
+  }
+  const symbols = pairs.map(([, sym]) => sym);
+  const [h1, h4] = await Promise.all([windowTickers(symbols, "1h", revalidate), windowTickers(symbols, "4h", revalidate)]);
+  for (const [w, rows] of [["1h", h1], ["4h", h4]] as const) {
+    for (const r of rows ?? []) {
+      const open = Number(r.openPrice);
+      const last = Number(r.lastPrice);
+      if (open > 0 && Number.isFinite(last)) out[w].set(r.symbol.replace(/USDT$/, ""), (100 * (last - open)) / open);
+    }
+  }
+  return out;
 }
 
 /** A row's `[total, long, short]` for one window, off its single-element quotes array. */
@@ -230,6 +325,10 @@ export async function GET() {
               conc.score,
               series.points.map((p) => p[w === "1h" ? "h1" : w === "4h" ? "h4" : "h24"]).filter((v): v is number => v != null)
             ),
+      totalPercentile: percentile(
+        totals.total,
+        series.points.map((p) => p[w === "1h" ? "t1" : w === "4h" ? "t4" : "t24"]).filter((v): v is number => v != null)
+      ),
       streamedShare: streamed ? streamed.by[w].share : null,
     };
   }
@@ -243,20 +342,31 @@ export async function GET() {
       h1: windows["1h"].score,
       h4: windows["4h"].score,
       h24: windows["24h"].score,
+      t1: windows["1h"].total,
+      t4: windows["4h"].total,
+      t24: windows["24h"].total,
     });
   }
   const sampleNow = await liqSeries();
 
-  const coinRows: CoinRow[] = (coins?.cryptocurrencies ?? [])
-    .map((c) => ({
-      id: c.crypto_id,
-      symbol: c.symbol,
-      name: c.name,
-      rank: c.cmc_rank,
-      by: Object.fromEntries(WINDOWS.map((w) => [w, split(c.quotes?.[0] as never, w)])) as CoinRow["by"],
-    }))
-    .sort((a, b) => b.by["24h"].total - a.by["24h"].total)
+  const kept = [...(coins?.cryptocurrencies ?? [])]
+    .sort((a, b) => split(b.quotes?.[0] as never, "24h").total - split(a.quotes?.[0] as never, "24h").total)
     .slice(0, KEEP_COINS);
+  const moves = await priceMoves(kept.map((c) => c.symbol));
+
+  const coinRows: CoinRow[] = kept.map((c) => ({
+    id: c.crypto_id,
+    symbol: c.symbol,
+    name: c.name,
+    rank: c.cmc_rank,
+    by: Object.fromEntries(
+      WINDOWS.map((w) => {
+        const s = split(c.quotes?.[0] as never, w);
+        const priceChange = moves[w].get(c.symbol) ?? null;
+        return [w, { ...s, priceChange, read: classify(s, priceChange, w) }];
+      })
+    ) as CoinRow["by"],
+  }));
 
   const payload: ForcedPayload = {
     ok: true,
@@ -266,6 +376,20 @@ export async function GET() {
     venues: venueRows.sort((a, b) => b.by["24h"].total - a.by["24h"].total),
     coins: coinRows,
     sample: { n: sampleNow.points.length, from: sampleNow.from, to: sampleNow.to },
+    history: Object.fromEntries(
+      WINDOWS.map((w) => {
+        const recent = sampleNow.points.slice(-HISTORY_POINTS);
+        const sk = w === "1h" ? "h1" : w === "4h" ? "h4" : "h24";
+        const tk = w === "1h" ? "t1" : w === "4h" ? "t4" : "t24";
+        return [
+          w,
+          {
+            score: recent.map((p) => p[sk]).filter((v): v is number => v != null),
+            total: recent.map((p) => p[tk]).filter((v): v is number => v != null),
+          },
+        ];
+      })
+    ) as ForcedPayload["history"],
     coverage: {
       venues: exchanges.length,
       coinsReturned: coins?.cryptocurrencies?.length ?? 0,

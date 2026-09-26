@@ -26,7 +26,7 @@ import { useApi } from "@/lib/useApi";
 const KEY = "w3w-terminal-alerts";
 
 /** Signal kinds the dislocation queue emits, plus a catch-all. */
-const SIGNAL_KINDS = ["any", "flow", "funding", "move", "oi", "vol-carry", "peg"] as const;
+const SIGNAL_KINDS = ["any", "flow", "funding", "move", "oi", "vol-carry", "peg", "liquidation"] as const;
 type SignalKind = (typeof SIGNAL_KINDS)[number];
 
 const KIND_LABEL: Record<SignalKind, string> = {
@@ -37,6 +37,7 @@ const KIND_LABEL: Record<SignalKind, string> = {
   oi: "open interest",
   "vol-carry": "vol carry",
   peg: "a stablecoin peg",
+  liquidation: "heavy liquidations",
 };
 
 interface PriceAlert {
