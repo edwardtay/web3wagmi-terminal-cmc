@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DeskChips } from "@/components/DeskChips";
 import { useApi } from "@/lib/useApi";
 import { Panel, Loading, Unavailable, TokenIcon, Th } from "./ui";
 import { usdCompact, compact, num } from "@/lib/format";
@@ -59,12 +60,6 @@ interface AskResult {
   note: string | null;
 }
 
-const TOOL_LABEL: Record<string, string> = {
-  dislocation_queue: "what changed",
-  exchange_flow: "exchange flow",
-  derivatives: "funding",
-  liquidations_all_venues: "liquidations",
-};
 
 function pct(v: number | null | undefined): string {
   return v == null || !Number.isFinite(v) ? "n/a" : `${(v * 100).toFixed(1)}%`;
@@ -318,14 +313,7 @@ function AskBox() {
             {result.answer ?? result.note}
           </p>
           {result.used.length > 0 && (
-            <p className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-[var(--text3)]">
-              <span>read</span>
-              {[...new Set(result.used.map((u) => u.tool))].map((t) => (
-                <span key={t} className="rounded border border-[var(--border)] bg-[var(--bg2)] px-1.5 py-0.5 text-[var(--text2)]">
-                  {TOOL_LABEL[t] ?? t}
-                </span>
-              ))}
-            </p>
+            <DeskChips tools={result.used.map((u) => u.tool)} className="mt-2 !text-[10px]" />
           )}
         </div>
       )}

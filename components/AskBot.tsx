@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DeskChips } from "@/components/DeskChips";
 import { createPortal } from "react-dom";
 
 // The assistant bubble, bottom right.
@@ -27,15 +28,6 @@ interface Turn {
   desks?: string[];
 }
 
-const DESK_LABEL: Record<string, string> = {
-  dislocation_queue: "what changed",
-  exchange_flow: "exchange flow",
-  derivatives: "funding",
-  liquidations_all_venues: "liquidations",
-  query_uniswap_subgraph: "uniswap",
-  compare_protocols: "protocols",
-  market_coverage: "coverage",
-};
 
 /** Shown once, so the bubble is not an empty box asking to be guessed at. */
 const OPENERS = [
@@ -114,7 +106,7 @@ export function AskBot() {
         {
           role: "bot",
           text: body.answer ?? body.note ?? "No answer came back.",
-          desks: [...new Set((body.used ?? []).map((u) => DESK_LABEL[u.tool] ?? u.tool))],
+          desks: [...new Set((body.used ?? []).map((u) => u.tool))],
         },
       ]);
     } catch {
@@ -178,19 +170,7 @@ export function AskBot() {
                 >
                   {t.role === "bot" ? <Answer text={t.text} /> : t.text}
                 </div>
-                {t.desks && t.desks.length > 0 && (
-                  <p className="mt-1 flex flex-wrap items-center gap-1 font-mono text-[9px] text-[var(--text3)]">
-                    <span>read</span>
-                    {t.desks.map((d) => (
-                      <span
-                        key={d}
-                        className="rounded border border-[var(--border)] bg-[var(--bg2)] px-1 py-px text-[var(--text2)]"
-                      >
-                        {d}
-                      </span>
-                    ))}
-                  </p>
-                )}
+                {t.desks && t.desks.length > 0 && <DeskChips tools={t.desks} className="mt-1" />}
               </div>
             ))}
 

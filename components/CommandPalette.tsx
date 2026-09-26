@@ -1,6 +1,7 @@
 "use client";
 
 import { TokenIcon } from "./ui";
+import { DeskChips } from "@/components/DeskChips";
 
 import { Command } from "cmdk";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,12 +36,6 @@ const STARTERS = [
 ];
 
 /** The desks, named the way a reader would recognise them. */
-const TOOL_LABEL: Record<string, string> = {
-  dislocation_queue: "what changed",
-  exchange_flow: "exchange flow",
-  derivatives: "funding",
-  liquidations_all_venues: "liquidations",
-};
 
 interface Item {
   label: string;
@@ -194,17 +189,11 @@ export function CommandPalette() {
                   {answer.used.length > 0 && (
                     /* Naming the desks is what makes the answer checkable. A
                        reader who doubts a number knows which panel to open. */
-                    <p className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[var(--border2)] pt-3 font-mono text-[10px] text-[var(--text3)]">
-                      <span>read</span>
-                      {[...new Set(answer.used.map((u) => u.tool))].map((tool) => (
-                        <span
-                          key={tool}
-                          className="rounded border border-[var(--border)] bg-[var(--bg2)] px-1.5 py-0.5 text-[var(--text2)]"
-                        >
-                          {TOOL_LABEL[tool] ?? tool}
-                        </span>
-                      ))}
-                    </p>
+                    <DeskChips
+                      tools={answer.used.map((u) => u.tool)}
+                      onOpen={() => setOpen(false)}
+                      className="mt-3 border-t border-[var(--border2)] pt-3 !text-[10px]"
+                    />
                   )}
                 </>
               )}
