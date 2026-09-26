@@ -6,10 +6,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // (verified against the connector docs and the raw event typings):
 //   { e:"forceOrder", E, o:{ s,S,o,f,q,p,ap,X,l,z,T } }
 // Only the latest force order per symbol per 1000ms is pushed, so this is a
-// snapshot tape rather than every single fill. Nothing is persisted: the
-// totals below cover the current browser session only.
+// snapshot tape rather than every single fill.
+//
+// On mount the tape is seeded from /api/liqtape, which the server records from
+// the same stream, so a page load shows the recent prints instead of waiting
+// for the next one. The session then runs from the earliest seeded print.
 
-const WS_URL = "wss://fstream.binance.com/ws/!forceOrder@arr";
+const WS_URL = "wss://fstream.binance.com/market/ws/!forceOrder@arr";
 
 /** Ring buffer caps. Three buffers so a filtered view is never empty just
  *  because the last 300 prints happened to be dust. */
@@ -112,6 +115,9 @@ export function useLiquidations(): LiquidationsState {
   const pending = useRef<LiqEvent[]>([]);
   const totals = useRef<Map<string, SymbolTotal>>(new Map());
   const seq = useRef(0);
+  // Prints already on the tape, so the live socket does not repeat what the
+  // seed delivered in the seconds they overlap.
+  const seen = useRef<Set<string>>(new Set());
 
   const ws = useRef<WebSocket | null>(null);
   const attempts = useRef(0);
@@ -168,6 +174,37 @@ export function useLiquidations(): LiquidationsState {
     return () => clearInterval(flushTimer);
   }, [flush]);
 
+  // Seed from the server's recording, oldest first so the flush leaves the
+  // newest print at the top.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/liqtape")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { events?: { ts: number; symbol: string; side: LiqSide; qty: number; price: number; usd: number }[] } | null) => {
+        if (cancelled || !d?.events?.length) return;
+        const events = [...d.events].reverse();
+        const seeded: LiqEvent[] = [];
+        for (const e of events) {
+          const key = `${e.symbol}-${e.ts}-${e.qty}`;
+          if (seen.current.has(key)) continue;
+          seen.current.add(key);
+          seq.current += 1;
+          seeded.push({ id: `${e.symbol}-${e.ts}-${seq.current}`, ts: e.ts, symbol: e.symbol, base: baseOf(e.symbol), side: e.side, qty: e.qty, price: e.price, usd: e.usd });
+        }
+        if (!seeded.length) return;
+        // Ahead of anything the socket has already queued, which is newer.
+        pending.current = [...seeded, ...pending.current];
+        const earliest = seeded[0].ts;
+        setState((s) => (earliest < s.sessionStart ? { ...s, sessionStart: earliest } : s));
+      })
+      .catch(() => {
+        // No seed is the old behaviour, a tape that fills from live prints.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined" || typeof WebSocket === "undefined") {
       setState((s) => ({ ...s, status: "down" }));
@@ -195,6 +232,9 @@ export function useLiquidations(): LiquidationsState {
       const ts = Number(o.T ?? msg.E);
       const symbol = o.s;
       const side: LiqSide = o.S === "SELL" ? "long" : "short";
+      const key = `${symbol}-${ts}-${q}`;
+      if (seen.current.has(key)) return;
+      seen.current.add(key);
       seq.current += 1;
       pending.current.push({
         id: `${symbol}-${ts}-${seq.current}`,

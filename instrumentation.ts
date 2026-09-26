@@ -36,7 +36,9 @@ export async function register() {
     // Without this the first reader after a deploy watches a skeleton for the
     // length of that whole chain while every other panel on the page has
     // already rendered.
-    for (const path of ["/api/netflow", "/api/unlocks", "/api/derivs", "/api/signals", "/api/brief"]) {
+    // liqtape first and cheap: it starts the force-order recording, so the tape
+    // has prints by the time anyone opens the page.
+    for (const path of ["/api/liqtape", "/api/netflow", "/api/unlocks", "/api/derivs", "/api/signals", "/api/brief"]) {
       try {
         await fetch(`${origin}${path}`, {
           cache: "no-store",

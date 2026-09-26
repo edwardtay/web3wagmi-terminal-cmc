@@ -6,6 +6,7 @@ import { clockTime, compact, pctPlain, price, usdCompact } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { unitOf, useLiquidations, type LiqEvent } from "@/lib/useLiquidations";
 import type { ForcedPayload } from "@/app/api/forced/route";
+import { LiqCharts } from "@/components/LiqCharts";
 
 type Filter = "all" | "10k" | "100k";
 
@@ -223,8 +224,8 @@ export function Liquidations() {
             </TableWrap>
           )}
           <div className="mt-2 font-mono text-[10px] text-[var(--text3)]">
-            Showing the last {rows.length} print{rows.length === 1 ? "" : "s"} in this filter. Buffer only, nothing is
-            kept across a reload.
+            Showing the last {rows.length} print{rows.length === 1 ? "" : "s"} in this filter. The server records the stream and
+            keeps six hours, so a reload starts from its recent prints.
           </div>
         </Panel>
 
@@ -364,6 +365,10 @@ export function Liquidations() {
             </div>
           )}
         </Panel>
+      </div>
+
+      <div className="mt-3">
+        <LiqCharts />
       </div>
 
       <div className="mt-3">
