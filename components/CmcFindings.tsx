@@ -69,11 +69,11 @@ export function CmcFindings() {
   const findings: Finding[] = [
     {
       figure: t && reported > 0 ? pctPlain((100 * t.flaggedOpenInterest) / reported, 0) : NA,
-      claim: `of reported open interest on ${coins} majors sits on pairs CoinMarketCap itself flags as outliers.`,
+      claim: `of reported open interest on ${coins} majors sits on trading pairs CoinMarketCap leaves out of its own price or volume figures.`,
       reference: !t
         ? "The open interest read did not answer."
         : btcGap != null
-          ? `Filtering them out moves Bitcoin's liquidated share of open interest by ${btcGap.toFixed(1)}x. Both figures are shown.`
+          ? `Leave them out too and Bitcoin's liquidated share of open interest moves ${btcGap.toFixed(1)}x. CoinMarketCap flags their price or volume, not the open interest itself, so both figures are shown.`
           : "Both the filtered and unfiltered figures are shown.",
       href: "#leverage",
     },

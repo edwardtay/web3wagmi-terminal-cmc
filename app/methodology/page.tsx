@@ -123,6 +123,17 @@ export default function MethodologyPage() {
             interest when this was measured. The table states the pairs read against the pairs the
             coin has, so the shortfall is visible rather than assumed away.
           </Row>
+          <Row term="What the flag means">
+            CoinMarketCap marks a trading pair with <span className="font-mono">outlier_detected</span>, or
+            lists the fields it leaves out of its own aggregates under{" "}
+            <span className="font-mono">exclusions</span>. On 26 September, of 53 flagged Bitcoin pairs, 49
+            were excluded for price, 45 for volume, and 10 carried the outlier mark. None of it is a verdict
+            on open interest itself. Leaving those pairs&apos; open interest out is this desk&apos;s
+            inference: a venue whose price or volume the aggregator will not use is a weak witness to its
+            own positions. The flagged pairs report open interest at about the same ratio to their volume
+            as the rest (0.37 against 0.39), so the data does not show them inflating it in particular.
+            That is why every ratio is shown both ways.
+          </Row>
           <Row term="Feed coverage">
             The liquidation feed covers nine venues. Open interest comes from a wider set, about fifty
             venues per coin, so the panel measures its own feed: the share of vouched-for open interest
