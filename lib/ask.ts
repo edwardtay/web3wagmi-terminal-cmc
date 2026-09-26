@@ -1534,6 +1534,7 @@ export async function ask(question: string, origin: string, focus?: string): Pro
   /** Whether the empty-handed model has already been asked to reconsider. */
   let nudged = false;
 
+  const seen = new Set<string>();
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const reply = await chat(messages, true, session);
     if (!reply) return { ok: false, answer: null, used, note: lastError ?? "The model did not answer." };
@@ -1592,6 +1593,25 @@ export async function ask(question: string, origin: string, focus?: string): Pro
         // so it becomes an empty call rather than a thrown request.
         args = {};
       }
+      // A repeat of a call already made, same tool and same arguments. The
+      // fallback model did this in production: asked whether BTC was crowded,
+      // it read the dislocation queue three times, never reached funding or
+      // liquidations, and answered that BTC positioning was not in the data.
+      // Rerunning costs a read and returns nothing new, so the repeat is
+      // answered with the desks still unread instead.
+      const key = `${call.function.name}:${JSON.stringify(args)}`;
+      if (spec && seen.has(key)) {
+        const unread = TOOLS.map((t) => t.name).filter((n) => !used.some((u) => u.tool === n));
+        messages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: JSON.stringify({
+            error: `Already read above with these arguments; use that result. Desks not yet read: ${unread.join(", ")}.`,
+          }),
+        });
+        continue;
+      }
+      seen.add(key);
       const result = spec ? await spec.run(args, origin) : { error: `No tool named ${call.function.name}.` };
       if (spec) {
         const err =
