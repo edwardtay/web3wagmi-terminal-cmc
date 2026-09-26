@@ -166,6 +166,12 @@ export function useLiquidations(): LiquidationsState {
         if (e.usd >= 10_000) t10k = push(t10k, e, CAP_10K);
         if (e.usd >= 100_000) t100k = push(t100k, e, CAP_100K);
       }
+      // Newest first by fill time. Pushes land on top, which is right for live
+      // prints and wrong for a refill of older ones after the tab was hidden.
+      const byTime = (a: LiqEvent, b: LiqEvent) => b.ts - a.ts;
+      all = [...all].sort(byTime);
+      t10k = [...t10k].sort(byTime);
+      t100k = [...t100k].sort(byTime);
       return { ...prev, tape: { all, t10k, t100k }, longUsd, shortUsd, count, largest, bySymbol };
     });
   }, []);
@@ -175,11 +181,13 @@ export function useLiquidations(): LiquidationsState {
     return () => clearInterval(flushTimer);
   }, [flush]);
 
-  // Seed from the server's recording, oldest first so the flush leaves the
-  // newest print at the top.
+  // Seed from the server's recording. Runs on load and again when a hidden tab
+  // comes back: the socket is closed while hidden, so without a refill the
+  // tape showed a three-hour hole for a tab left in the background.
+  const seedRef = useRef<() => void>(() => {});
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/liqtape")
+    const seed = () => fetch("/api/liqtape")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { events?: { ts: number; symbol: string; side: LiqSide; qty: number; price: number; usd: number }[] } | null) => {
         if (cancelled || !d?.events?.length) return;
@@ -201,6 +209,8 @@ export function useLiquidations(): LiquidationsState {
       .catch(() => {
         // No seed is the old behaviour, a tape that fills from live prints.
       });
+    seedRef.current = () => void seed();
+    void seed();
     return () => {
       cancelled = true;
     };
@@ -305,6 +315,7 @@ export function useLiquidations(): LiquidationsState {
       } else {
         closedByUs.current = false;
         attempts.current = 0;
+        seedRef.current();
         // A socket the OS tore down while the page was suspended is still an
         // object here, with a readyState that says it is finished. Clear it
         // before reconnecting or the tape stays frozen looking live.

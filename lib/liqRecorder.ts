@@ -18,7 +18,10 @@ const WS_URL = "wss://fstream.binance.com/market/ws/!forceOrder@arr";
 
 /** How far back the buffer reaches, and a hard cap for a violent hour. */
 const KEEP_MS = 6 * 60 * 60 * 1000;
-const CAP = 5000;
+// Sized for a violent day: 26 Sep 2026 printed 3,772 in one hour, so the old
+// 5,000 cap held about 80 minutes and the six-hour promise was false. About
+// 100 bytes a print, so this is a few megabytes at most.
+const CAP = 60000;
 
 export interface RecordedLiq {
   ts: number;

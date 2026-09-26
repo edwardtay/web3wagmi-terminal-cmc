@@ -161,7 +161,7 @@ export function LiqCharts({ stacked = false }: { stacked?: boolean }) {
   return (
     <div className={stacked ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 gap-3 lg:grid-cols-[1.45fr_1fr]"}>
       <Panel
-        title="Last hour, per minute"
+        title="Binance, last hour per minute"
         hint="Binance force orders recorded by this server. Shorts liquidated plot above the line (forced buying), longs below (forced selling). The stream sends at most one print per symbol per second, so this is a snapshot of the tape rather than every fill."
         right={
           <span className="whitespace-nowrap font-mono text-[11px] text-[var(--text3)]">
@@ -190,7 +190,7 @@ export function LiqCharts({ stacked = false }: { stacked?: boolean }) {
         )}
       </Panel>
       <Panel
-        title="Where the dollars come from"
+        title="Binance: where the dollars come from"
         hint="Every print recorded in the window, bucketed by size. The buckets are logarithmic because liquidation sizes span five orders of magnitude."
         right={
           since ? (

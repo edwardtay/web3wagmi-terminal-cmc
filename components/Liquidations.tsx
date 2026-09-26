@@ -117,8 +117,9 @@ export function Liquidations() {
 
   return (
     <Section
-      title="Liquidations"
+      title="Binance liquidations"
       id="liquidations"
+      hint="Binance's own liquidation stream, which carries about half of the liquidations CoinMarketCap tracks. The Forced selling section below covers all nine exchanges."
       right={
         <>
           {mounted && (
@@ -136,7 +137,7 @@ export function Liquidations() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
         {/* ------------------------------------------------------- the tape -- */}
         <Panel
-          title="Force order tape"
+          title="Binance force order tape"
           right={<Segmented<Filter> options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Minimum notional" />}
         >
           {liq.status === "down" && waiting ? (
