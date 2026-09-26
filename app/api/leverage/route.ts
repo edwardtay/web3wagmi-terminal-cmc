@@ -3,6 +3,7 @@ import {
   BUDGET,
   FAILURE_TEXT,
   cleanOpenInterest,
+  fundingBreadth,
   cmcReady,
   coinLiquidations,
   coinOpenInterest,
@@ -82,6 +83,14 @@ export interface LeverageRow {
   clearedFractionUnfiltered: number | null;
   /** The venues holding the vouched-for open interest, largest first. */
   topVenues: { venue: string; openInterest: number }[];
+  /**
+   * Share of clean perpetual open interest on venues where longs pay, 0 to 1.
+   * From the same response as the open interest, so it costs nothing. The sign
+   * only: the feed omits each venue's settlement period, so rates are not
+   * comparable across venues. See `fundingBreadth` in lib/cmc.ts.
+   */
+  fundingLongShare: number | null;
+  fundingPairs: { long: number; short: number; flat: number };
 }
 
 export interface LeveragePayload {
@@ -90,7 +99,13 @@ export interface LeveragePayload {
   failure: string | null;
   rows: LeverageRow[];
   /** Totals across the covered coins, for the headline. */
-  totals: { openInterest: number; flaggedOpenInterest: number; liquidated24h: number } | null;
+  totals: {
+    openInterest: number;
+    flaggedOpenInterest: number;
+    liquidated24h: number;
+    /** Funding breadth pooled across every covered coin, weighted by open interest. */
+    fundingLongShare: number | null;
+  } | null;
   coverage: { requested: number; priced: number; reads: number; readFailures: number };
   credits: number;
   budget: { monthly: number; routeAllowance: number };
@@ -140,6 +155,8 @@ export async function GET() {
   // turns a working read into a throttled one, and there is nothing to gain
   // from arriving two seconds sooner on a two hour cache.
   const rows: LeverageRow[] = [];
+  let fundingLong = 0;
+  let fundingShort = 0;
   for (const symbol of MATRIX) {
     const oi = await coinOpenInterest(symbol, opts);
     const liq = liqBySymbol.get(symbol);
@@ -161,11 +178,16 @@ export async function GET() {
         clearedFraction: null,
         clearedFractionUnfiltered: null,
         topVenues: [],
+        fundingLongShare: null,
+        fundingPairs: { long: 0, short: 0, flat: 0 },
       });
       continue;
     }
 
     const { clean, flagged, cleanPairs, flaggedPairs, byVenue } = cleanOpenInterest(oi.market_pairs);
+    const funding = fundingBreadth(oi.market_pairs);
+    fundingLong += funding.longOi;
+    fundingShort += funding.shortOi;
     const liquidated = liq?.total ?? 0;
 
     rows.push({
@@ -181,6 +203,8 @@ export async function GET() {
       clearedFraction: clean > 0 ? liquidated / clean : null,
       clearedFractionUnfiltered: clean + flagged > 0 ? liquidated / (clean + flagged) : null,
       topVenues: byVenue.slice(0, 5),
+      fundingLongShare: funding.longShare,
+      fundingPairs: funding.pairs,
     });
   }
 
@@ -205,6 +229,7 @@ export async function GET() {
       openInterest: rows.reduce((s, r) => s + r.openInterest, 0),
       flaggedOpenInterest: rows.reduce((s, r) => s + r.flaggedOpenInterest, 0),
       liquidated24h: rows.reduce((s, r) => s + r.liquidated24h, 0),
+      fundingLongShare: fundingLong + fundingShort > 0 ? fundingLong / (fundingLong + fundingShort) : null,
     },
     coverage: { requested: MATRIX.length, priced, reads, readFailures },
     credits: calls.reduce((s, c) => s + c.credits, 0),

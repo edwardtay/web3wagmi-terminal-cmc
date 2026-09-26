@@ -513,6 +513,12 @@ export interface MarketPair {
   exchange?: { exchange_id: number; exchange_name: string; exchange_slug: string };
   market_pair_base: { crypto_id: number; symbol: string };
   quotes: { convert_id: number; price: number; volume_24h: number; open_interest: number | null }[];
+  /**
+   * The venue's own figures, before CMC normalises them. The only place the
+   * funding rate appears. It is a fraction per settlement period and the period
+   * is not reported: Hyperliquid prints hourly, most venues every eight hours.
+   */
+  exchange_reported_quotes?: { funding_rate?: number | null; open_interest?: number | null }[];
 }
 
 /**
@@ -585,6 +591,54 @@ export function cleanOpenInterest(pairs: MarketPair[]): {
       .map(([venue, openInterest]) => ({ venue, openInterest }))
       .sort((a, b) => b.openInterest - a.openInterest),
   };
+}
+
+/**
+ * Which way funding points across every venue CMC vouches for, weighted by the
+ * open interest paying it.
+ *
+ * The rate itself cannot be compared across venues from this feed. It is a
+ * fraction per settlement period and the period is absent from the payload:
+ * probed 2026-09-26, Hyperliquid's BTC rate was 0.00015% because it settles
+ * hourly, against Binance's 0.0018% on eight hours. Annualising either would
+ * need a cadence table this feed cannot confirm, and averaging them raw mixes
+ * units. The sign does not depend on the period, so this reads the sign.
+ *
+ * `longShare` is the part of clean perpetual open interest on venues where
+ * longs pay shorts, over the part where anyone pays. A zero rate is counted as
+ * flat and left out of both sides: Deribit reports 0 because it accrues
+ * continuously rather than printing a rate.
+ */
+export function fundingBreadth(pairs: MarketPair[]): {
+  longShare: number | null;
+  longOi: number;
+  shortOi: number;
+  /** Pair counts, since one venue can list the coin against several quotes. */
+  pairs: { long: number; short: number; flat: number };
+} {
+  let longOi = 0;
+  let shortOi = 0;
+  const counts = { long: 0, short: 0, flat: 0 };
+
+  for (const p of pairs) {
+    if (p.category !== "perpetual") continue;
+    if (p.outlier_detected || p.exclusions?.length) continue;
+    const oi = p.quotes?.[0]?.open_interest ?? 0;
+    const rate = p.exchange_reported_quotes?.[0]?.funding_rate;
+    if (!oi || rate == null || !Number.isFinite(rate)) continue;
+    if (rate > 0) {
+      longOi += oi;
+      counts.long += 1;
+    } else if (rate < 0) {
+      shortOi += oi;
+      counts.short += 1;
+    } else {
+      counts.flat += 1;
+    }
+  }
+
+  const paying = longOi + shortOi;
+  return { longShare: paying > 0 ? longOi / paying : null, longOi, shortOi, pairs: counts };
 }
 
 // ---- the key ledger ------------------------------------------------------

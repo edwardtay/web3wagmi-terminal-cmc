@@ -66,6 +66,15 @@ export function LeverageCleared() {
                 the{" "}
                 <span className="font-mono tabular-nums">{usdCompact(totals.openInterest)}</span>{" "}
                 that is left, and the unfiltered figure is shown beside it so the gap is visible.
+                {totals.fundingLongShare != null && (
+                  <>
+                    {" "}On that same open interest, longs are paying funding on{" "}
+                    <span className="font-mono tabular-nums">
+                      {pctPlain(100 * totals.fundingLongShare, 0)}
+                    </span>{" "}
+                    of it and shorts on the rest. An even split would be 50%.
+                  </>
+                )}
               </p>
             )}
 
@@ -110,6 +119,13 @@ export function LeverageCleared() {
                     hint="Share of reported open interest sitting on pairs CoinMarketCap does not stand behind."
                   />
                   <Th
+                    label="Longs paying"
+                    sortKey="fundingLongShare"
+                    sort={sort}
+                    num
+                    hint="Share of vouched-for perpetual open interest on venues where funding is positive, so longs pay shorts to hold. Read from the same call as the open interest, across every venue CoinMarketCap lists, where the funding desk reads Binance and Hyperliquid. The sign only: the feed omits each venue's settlement period, so the rates themselves are not comparable. Pair counts are long, short and flat."
+                  />
+                  <Th
                     label="Pairs read"
                     sortKey="cleanPairs"
                     sort={sort}
@@ -137,6 +153,12 @@ export function LeverageCleared() {
                     </td>
                     <td className="num text-[var(--text3)]">
                       {r.flaggedShare != null ? pctPlain(100 * r.flaggedShare) : NA}
+                    </td>
+                    <td className="num">
+                      {r.fundingLongShare != null ? pctPlain(100 * r.fundingLongShare, 0) : NA}
+                      <div className="text-[10px] text-[var(--text3)]">
+                        {r.fundingPairs.long} / {r.fundingPairs.short} / {r.fundingPairs.flat}
+                      </div>
                     </td>
                     <td className="num text-[var(--text3)]">
                       {r.cleanPairs} of {r.cleanPairs + r.flaggedPairs}

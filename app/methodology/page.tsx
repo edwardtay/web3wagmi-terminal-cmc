@@ -121,6 +121,16 @@ export default function MethodologyPage() {
             interest when this was measured. The table states the pairs read against the pairs the
             coin has, so the shortfall is visible rather than assumed away.
           </Row>
+          <Row term="Longs paying">
+            The share of that same vouched-for perpetual open interest sitting on venues where
+            funding is positive, so longs pay shorts to hold. It comes from the call that supplies
+            the open interest, so it costs nothing extra, and it spans every venue CoinMarketCap
+            lists for the coin, around forty to fifty, against the two the funding desk reads. Only
+            the sign is used. The feed reports each venue&apos;s rate per settlement period and
+            omits the period, and Hyperliquid settles hourly where most venues settle every eight
+            hours, so the rates cannot be annualised or averaged from this feed. A zero rate counts
+            as flat and sits on neither side. 50% is an even split.
+          </Row>
           <Row term="Pool turnover and FDV to liquidity">
             Turnover is 24 hour pool volume divided by pool liquidity. FDV to liquidity is fully
             diluted value divided by pool liquidity. Both are arithmetic on the pool row and neither
