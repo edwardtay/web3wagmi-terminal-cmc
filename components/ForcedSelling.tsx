@@ -134,7 +134,7 @@ function ShareBar({ label, parts }: { label: string; parts: { name: string; shar
 /**
  * What the feed sees, drawn rather than written. It replaced a five-line
  * paragraph: the tape covers Binance only, the feed covers nine venues, and
- * those nine hold under half of the open interest CoinMarketCap vouches for.
+ * those nine hold under half of the open interest CoinMarketCap does not flag for price or volume.
  * Amber is Binance, cyan the rest of the feed, grey what no feed here sees.
  */
 function CoverageBars({
@@ -167,7 +167,7 @@ function CoverageBars({
       {feedOiShare != null && binanceOiShare != null && (
         <>
           <ShareBar
-            label={`Open interest CoinMarketCap vouches for, ${oiVenueCount} venues`}
+            label={`Filtered open interest in our nine-coin sample, ${oiVenueCount} venues`}
             parts={[
               { name: "Binance", share: binanceOiShare, color: BINANCE },
               { name: `${venues - 1} other feed venues`, share: Math.max(0, feedOiShare - binanceOiShare), color: FEED },
@@ -175,8 +175,8 @@ function CoverageBars({
             ]}
           />
           <p className="text-[11px] leading-relaxed text-[var(--text3)]">
-            If liquidations track open interest, the Binance tape sees about{" "}
-            {Math.round(100 * streamedShare * feedOiShare)}% of the market. CoinMarketCap is owned by Binance.
+            Open-interest shares describe the fetched nine-coin sample, not measured coverage of
+            all market liquidations. CoinMarketCap is owned by Binance.
           </p>
         </>
       )}

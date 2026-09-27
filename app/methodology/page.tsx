@@ -106,15 +106,15 @@ export default function MethodologyPage() {
             CoinMarketCap reports, shown as an effective venue count. Near 1 means one exchange
             carried nearly all of it; near 9 means the selling was spread evenly. The 0 to 100 score
             beside it rescales the same index so 0 is perfectly even and 100 is all on one venue. It
-            is ranked against a series this desk collects for itself every thirty minutes, because
+            is ranked against a series collected on a thirty-minute target schedule, with gaps, because
             the feed publishes only rolling windows, and the reading says how many samples it is
             ranking against. Under thirty samples it declines to rank at all.
           </Row>
-          <Row term="Leverage cleared">
-            A coin&apos;s 24 hour liquidation value divided by the open interest standing behind it.
-            This ranks by how much of a book went rather than by dollar size, so a mid-cap losing
-            half a percent of its open interest sits above a major losing a tenth. The denominator
-            sums only the market pairs CoinMarketCap vouches for: it marks pairs with
+          <Row term="Liquidations / open interest">
+            A coin&apos;s 24 hour liquidation value across nine venues divided by sampled open interest
+            across a wider venue set. This compares liquidation scale and sensitivity to filtering;
+            it does not measure the percentage of the same book closed. The denominator
+            excludes market pairs that CoinMarketCap marks with
             <span className="font-mono"> outlier_detected</span> or an exclusion, and those carried
             about half the reported open interest across the majors when this was built. The
             unfiltered ratio is published beside it, and for Bitcoin the two differ by roughly two
@@ -136,11 +136,11 @@ export default function MethodologyPage() {
           </Row>
           <Row term="Feed coverage">
             The liquidation feed covers nine venues. Open interest comes from a wider set, about fifty
-            venues per coin, so the panel measures its own feed: the share of vouched-for open interest
+            venues per coin in the fetched pairs of nine sampled coins. The panel reports the share of filtered open interest
             those nine hold, and Binance&apos;s share of all of it. On 26 September the nine held 44% and
             Binance 23%, so Binance&apos;s near half of the feed&apos;s
             liquidations is a share of the visible part of the market. CoinMarketCap is owned by
-            Binance, which is a further reason to state it.
+            Binance. These are sampled open-interest shares, not a measurement of total market liquidation coverage.
           </Row>
           <Row term="Squeeze or flush">
             Each coin&apos;s liquidations set against its Binance spot price over the same rolling
@@ -158,10 +158,9 @@ export default function MethodologyPage() {
             concentrated quiet hour is a handful of positions on one book, so size is required too.
           </Row>
           <Row term="Longs paying">
-            The share of that same vouched-for perpetual open interest sitting on venues where
+            The share of that same filtered perpetual open interest sitting on venues where
             funding is positive, so longs pay shorts to hold. It comes from the call that supplies
-            the open interest, so it costs nothing extra, and it spans every venue CoinMarketCap
-            lists for the coin, around forty to fifty, against the two the funding desk reads. Only
+            the open interest, so it costs nothing extra, and it spans the fetched venues for the coin, around forty to fifty, against the two the funding desk reads. Only
             the sign is used. The feed reports each venue&apos;s rate per settlement period and
             omits the period, and Hyperliquid settles hourly where most venues settle every eight
             hours, so the rates cannot be annualised or averaged from this feed. A zero rate counts
@@ -170,7 +169,7 @@ export default function MethodologyPage() {
           <Row term="Perp premium">
             How far perpetuals trade above their index, in basis points, taken as the
             open-interest-weighted median of each venue&apos;s reported basis across the same
-            vouched-for pairs. Basis is a price ratio with no settlement period, so unlike funding
+            filtered pairs. Basis is a price ratio with no settlement period, so unlike funding
             it compares across venues directly. A median because single venues report broken
             indices: on 26 September Kraken claimed a 20% and a 36% Bitcoin premium while every
             other venue sat within a tenth of a percent. Readings past 1% are dropped and counted.

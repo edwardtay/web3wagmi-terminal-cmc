@@ -21,7 +21,7 @@ const ROUTES: Route[] = [
   { path: "/api/candles?symbol=BTC&interval=1h&limit=50", label: "Candles", upstream: "Binance spot" },
   { path: "/api/derivs", label: "Funding and open interest", upstream: "Binance futures, Hyperliquid" },
   { path: "/api/forced", label: "Cross-venue liquidations", upstream: "CoinMarketCap" },
-  { path: "/api/leverage", label: "Leverage cleared", upstream: "CoinMarketCap" },
+  { path: "/api/leverage", label: "Liquidations / open interest", upstream: "CoinMarketCap" },
   { path: "/api/volume", label: "Volume quality", upstream: "CoinMarketCap, keyless" },
   { path: "/api/options?currency=BTC", label: "Options desk", upstream: "Deribit" },
   { path: "/api/depth?symbol=BTC", label: "Order book seed", upstream: "Binance spot" },

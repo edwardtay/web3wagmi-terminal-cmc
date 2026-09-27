@@ -82,9 +82,13 @@ samples exist, which means unranked rather than ordinary.
 
 ### `GET /api/leverage`
 
-Per coin, 24h liquidations over the open interest CoinMarketCap vouches for, with the unfiltered
-ratio beside it. `fundingLongShare` is the share of that open interest on venues where longs pay.
-It is a sign rather than a rate, because the feed omits each venue's settlement period.
+Per coin, 24h liquidations across nine venues divided by sampled open interest
+from the first 100 pairs across a wider venue set. `clearedFraction` and
+`clearedFractionUnfiltered` are legacy names for comparison ratios, not the share
+of a matching book closed. CMC's price/volume exclusions do not validate open
+interest; filtering those pairs is this terminal's sensitivity assumption.
+`fundingLongShare` is the share of sampled filtered OI with a nonzero reported
+funding rate where longs pay. It is a sign, not a rate: settlement periods are absent.
 
 ### `POST /api/ask`
 

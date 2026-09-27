@@ -12,23 +12,12 @@ import {
 } from "@/lib/cmc";
 import { MATRIX } from "@/lib/symbols";
 
-// How much of the standing leverage a day's liquidations actually cleared.
-//
-// $40m liquidated on a coin carrying $180m of open interest is most of the book
-// gone. The same $40m against $4bn is a rounding error. Every liquidation
-// display ranks by dollar value, which mostly ranks by market cap and says
-// nothing about damage. The ratio says something.
-//
-// The denominator is the part worth reading carefully. Open interest exists
-// nowhere on the coin-level endpoints; it lives on market pairs, and CMC flags
-// the pairs whose figures it does not stand behind with `outlier_detected` and
-// a non-empty `exclusions`. Probed on 2026-09-20 for BTC, 54 of 100 pairs were
-// flagged and they carried 60.7% of the $102bn reported. Dividing by the raw
-// sum gave 0.058%; dividing by what CMC vouches for gave 0.149%.
-//
-// Both are published here, because the gap between them is the more interesting
-// number. It is a vendor telling you which of its own inputs to distrust, and
-// nothing else on this desk has an equivalent.
+// Liquidation value / sampled open interest, with and without flagged pairs.
+// Liquidations cover nine venues; OI covers the first page of pairs across more
+// venues. These are comparison ratios, not the share of the same book closed.
+// CMC's exclusions concern price and volume. Applying them to OI is our
+// sensitivity assumption, not a vendor validation of open interest.
+// Keep legacy "cleared" field names so existing consumers remain compatible.
 
 // One call per coin plus one for the liquidation board.
 //
@@ -57,7 +46,7 @@ export interface LeverageRow {
   liquidated24h: number;
   long24h: number;
   short24h: number;
-  /** Open interest on the pairs CMC vouches for. */
+  /** Open interest on the pairs CMC does not flag for price or volume. */
   openInterest: number;
   /** Open interest on the pairs CMC flags as outliers or excludes. */
   flaggedOpenInterest: number;
@@ -78,11 +67,11 @@ export interface LeverageRow {
    * whole book when the book is 195.
    */
   pairsTotal: number | null;
-  /** Liquidated as a share of vouched-for open interest, 0 to 1. */
+  /** Liquidated as a share of filtered open interest, 0 to 1. */
   clearedFraction: number | null;
   /** The same against the unfiltered sum, so the gap is visible. */
   clearedFractionUnfiltered: number | null;
-  /** The venues holding the vouched-for open interest, largest first. */
+  /** The venues holding the filtered open interest, largest first. */
   topVenues: { venue: string; openInterest: number }[];
   /**
    * Share of clean perpetual open interest on venues where longs pay, 0 to 1.

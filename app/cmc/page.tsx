@@ -67,8 +67,8 @@ const ENDPOINTS: {
 }[] = [
   { path: "/v5/derivatives/liquidations/quotes/latest", credits: 1, window: "20 min", monthly: 2160, used: "Forced selling, the headline" },
   { path: "/v5/derivatives/liquidations/exchange/list/latest", credits: 1, window: "20 min + 30 min + 1 h", monthly: 4320, used: "Forced selling, the venue split. Also the sampler, and the live call on this page" },
-  { path: "/v5/derivatives/liquidations/cryptocurrency/list/latest", credits: 1, window: "20 min + 2 h + 30 min", monthly: 3960, used: "Forced selling and Leverage cleared. Also the sampler" },
-  { path: "/v5/cryptocurrency/derivatives/market-pairs/list/latest", credits: 1, window: "2 h, nine coins", monthly: 3240, used: "Leverage cleared, the open interest denominator" },
+  { path: "/v5/derivatives/liquidations/cryptocurrency/list/latest", credits: 1, window: "20 min + 2 h + 30 min", monthly: 3960, used: "Forced selling and Liquidations / open interest. Also the sampler" },
+  { path: "/v5/cryptocurrency/derivatives/market-pairs/list/latest", credits: 1, window: "2 h, nine coins", monthly: 3240, used: "Liquidations / open interest, the open interest denominator" },
   { path: "/public-api/v1/global-metrics/quotes/latest", credits: 0, keyless: true, window: "30 min", monthly: 0, used: "Volume quality. Keyless, so it costs nothing" },
   { path: "/v1/key/info", credits: 0, window: "1 h", monthly: 0, used: "This page. Free" },
 ];
@@ -152,12 +152,13 @@ export default async function CmcPage() {
       </div>
 
       <div className="mt-4">
-        <Section title="A real call, made while this page rendered" id="evidence">
+        <Section title="Real API evidence, cached for up to one hour" id="evidence">
           <Panel title="Request">
             <div className="space-y-3">
               <p className="text-[12px] leading-relaxed text-[var(--text2)]">
                 The key travels on the <span className="font-mono">X-CMC_PRO_API_KEY</span> header
-                and never in a URL, which is why this one is safe to print.
+                and never in a URL, which is why this one is safe to print. The upstream response is cached
+                for up to one hour; its timestamp below states when the data was generated.
               </p>
               <Code>{`curl -H "X-CMC_PRO_API_KEY: $CMC_API_KEY" \\\n  '${url}'`}</Code>
             </div>

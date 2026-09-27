@@ -19,10 +19,10 @@ import { getJson } from "./http";
 // 1. `error_code` is a string on the v3 and v5 endpoints and a number on the v1
 //    ones. Never compare it with `===` against either.
 // 2. Open interest does not exist on any coin-level or exchange-level endpoint.
-//    It lives on market pairs, and CMC flags the pairs it does not vouch for
+//    It lives on market pairs, and CMC marks pairs for price/volume exclusions or outliers
 //    with `outlier_detected` and `exclusions`. For BTC those flagged pairs
-//    carried 60.7% of reported open interest, so an unfiltered sum is wrong by
-//    a factor of two and a half. See `cleanOpenInterest`.
+//    carried 60.7% of fetched open interest, so filtering changes the denominator
+//    by a factor of two and a half. Price/volume flags do not validate OI. See `cleanOpenInterest`.
 // 3. There is no historical liquidation endpoint. Rolling 1h, 4h and 24h only.
 //    The series in `data/liquidations/` is collected by `scripts/cmc-sample.mjs`
 //    for that reason, and it is the only history this desk has.
@@ -544,7 +544,7 @@ export function coinOpenInterest(symbol: string, opts: CmcOptions = {}) {
 
 
 /**
- * Sum open interest across pairs, separating what CMC vouches for from what it
+ * Sum open interest across pairs, separating what CMC does not flag for price or volume from what it
  * does not.
  *
  * This split is the most useful thing in the whole API and it is not documented
@@ -554,9 +554,8 @@ export function coinOpenInterest(symbol: string, opts: CmcOptions = {}) {
  * claimed five to nine billion, and CMC marks all of them.
  *
  * Dividing 24h liquidations by the unfiltered sum gave 0.058%. Dividing by the
- * clean sum gave 0.149%. Every liquidation dashboard that ranks by dollars and
- * normalises by raw open interest is off by that factor, so both numbers are
- * returned and the panel shows both.
+ * clean sum gave 0.149%. This is a sensitivity comparison, not evidence that the unfiltered
+ * open interest is wrong. Both ratios are returned and shown.
  */
 export function cleanOpenInterest(pairs: MarketPair[]): {
   clean: number;
@@ -599,7 +598,7 @@ export function cleanOpenInterest(pairs: MarketPair[]): {
 }
 
 /**
- * Which way funding points across every venue CMC vouches for, weighted by the
+ * Which way funding points across every venue CMC does not flag for price or volume, weighted by the
  * open interest paying it.
  *
  * The rate itself cannot be compared across venues from this feed. It is a
@@ -647,7 +646,7 @@ export function fundingBreadth(pairs: MarketPair[]): {
 }
 
 /**
- * The perpetual premium over the index across every venue CMC vouches for, as
+ * The perpetual premium over the index across every venue CMC does not flag for price or volume, as
  * the open-interest-weighted median, in basis points.
  *
  * Unlike the funding rate, basis is a price ratio and carries no settlement

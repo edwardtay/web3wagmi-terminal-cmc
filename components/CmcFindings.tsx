@@ -71,25 +71,25 @@ export function CmcFindings() {
       figure: t && reported > 0 ? pctPlain((100 * t.flaggedOpenInterest) / reported, 0) : NA,
       claim: `of reported open interest on ${coins} majors sits on trading pairs CoinMarketCap leaves out of its own price or volume figures.`,
       reference: !t
-        ? "The open interest read did not answer."
+        ? leverage.loading ? "Reading open interest…" : "The open interest read did not answer."
         : btcGap != null
-          ? `Leave them out too and Bitcoin's liquidated share of open interest moves ${btcGap.toFixed(1)}x. CoinMarketCap flags their price or volume, not the open interest itself, so both figures are shown.`
+          ? `Leave them out too and Bitcoin's liquidation / open-interest ratio changes ${btcGap.toFixed(1)}x. CoinMarketCap flags their price or volume, not the open interest itself, so both figures are shown.`
           : "Both the filtered and unfiltered figures are shown.",
       href: "#leverage",
     },
     {
-      figure: w?.streamedShare != null ? pctPlain(100 * w.streamedShare, 0) : NA,
+      figure: forced.loading ? "Loading…" : w?.streamedShare != null ? pctPlain(100 * w.streamedShare, 0) : NA,
       claim: `of 24h liquidations on the ${venues} venues CoinMarketCap reports happened on Binance, the one venue the terminal's tape streams.`,
       reference: !w
-        ? "The liquidation feed did not answer."
+        ? forced.loading ? "Reading the liquidation feed…" : "The liquidation feed did not answer."
         : feedOiShare != null && binanceOiShare != null
-          ? `Those ${venues} hold ${pctPlain(100 * feedOiShare, 0)} of vouched-for open interest; Binance alone holds ${pctPlain(100 * binanceOiShare, 0)}. CoinMarketCap is owned by Binance.`
+          ? `Those ${venues} hold ${pctPlain(100 * feedOiShare, 0)} of filtered open interest in our nine-coin sample; Binance alone holds ${pctPlain(100 * binanceOiShare, 0)}. CoinMarketCap is owned by Binance.`
           : `The other ${usdCompact(w.total * (1 - (w.streamedShare ?? 0)))} was spread over ${venues - 1} more venues.`,
       href: "#forced",
     },
     {
       figure: t?.fundingLongShare != null ? pctPlain(100 * t.fundingLongShare, 0) : NA,
-      claim: "of the vouched-for open interest is on venues where longs are paying funding.",
+      claim: "of the filtered open interest is on venues where longs are paying funding.",
       reference: "Read across forty to fifty venues per coin from the same call, for no extra credits. An even split is 50%.",
       href: "#leverage",
     },
@@ -98,8 +98,8 @@ export function CmcFindings() {
       claim: "spot volume reported against what CoinMarketCap will count.",
       reference:
         deriv?.inflation != null
-          ? `Derivatives come in at ${deriv.inflation.toFixed(2)}x, so the inflation sits on spot books. This read is keyless and costs nothing.`
-          : "The volume read did not answer.",
+          ? `Derivatives come in at ${deriv.inflation.toFixed(2)}x, so the reported-to-counted gap is larger for spot. This read is keyless and costs nothing.`
+          : volume.loading ? "Reading volume…" : "The volume read did not answer.",
       href: "#volume",
     },
   ];

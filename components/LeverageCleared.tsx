@@ -5,14 +5,9 @@ import { pctPlain, usdCompact , NA} from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { LeveragePayload, LeverageRow } from "@/app/api/leverage/route";
 
-// How much of the standing leverage a day's liquidations actually cleared, and
-// how much of the open interest underneath that ratio CoinMarketCap says it
-// does not stand behind.
-//
-// Two readings on one table. The first ranks by damage rather than by dollars:
-// a coin with $7m liquidated against $1.3bn of open interest lost more of its
-// book than one with $64m against $40bn, and a table sorted on dollar value
-// puts them in the opposite order. The second is the denominator itself.
+// Compare liquidation value with sampled open interest, filtered and unfiltered.
+// The venue universes differ; neither ratio is a fraction of one book closed.
+// Legacy API field names retain "cleared" for compatibility.
 
 /** Long liquidated is forced selling, so it reads red. */
 const LONG = "var(--neg)";
@@ -39,9 +34,9 @@ export function LeverageCleared() {
 
   return (
     <Section
-      title="Leverage cleared"
+      title="Liquidations / open interest"
       id="leverage"
-      hint="A day's liquidations as a share of the open interest standing behind them. Open interest is summed from the market pairs CoinMarketCap vouches for, excluding the pairs it flags as outliers or excludes from its own aggregates."
+      hint="24h liquidations across nine venues divided by sampled open interest across a wider venue set. Compare filtered and unfiltered denominators; this is not the percentage of a matching book that was closed."
     >
       <Panel
         title="Liquidated against open interest, 24h"
@@ -50,7 +45,7 @@ export function LeverageCleared() {
         {loading && <Loading rows={6} />}
 
         {!loading && (failed || !data?.ok) && (
-          <Unavailable what="Leverage cleared" reason={data?.failure} />
+          <Unavailable what="Liquidations / open interest" reason={data?.failure} />
         )}
 
         {!loading && data?.ok && totals && (
@@ -59,10 +54,9 @@ export function LeverageCleared() {
               <p className="mb-4 text-[11px] leading-relaxed text-[var(--text2)]">
                 Across these {data.coverage.priced} coins, venues report{" "}
                 <span className="font-mono tabular-nums">{usdCompact(reported)}</span> of open
-                interest. CoinMarketCap flags{" "}
+                interest in the fetched pairs. Pairs flagged by CoinMarketCap for price or volume carry{" "}
                 <span className="font-mono tabular-nums">{pctPlain(100 * flaggedShare)}</span> of it,{" "}
-                <span className="font-mono tabular-nums">{usdCompact(totals.flaggedOpenInterest)}</span>,
-                as outlying or excluded from its own aggregates. Every ratio in this table divides by
+                <span className="font-mono tabular-nums">{usdCompact(totals.flaggedOpenInterest)}</span>. Applying those flags to open interest is our assumption, not a CMC verdict on it. The filtered ratio divides by
                 the{" "}
                 <span className="font-mono tabular-nums">{usdCompact(totals.openInterest)}</span>{" "}
                 that is left, and the unfiltered figure is shown beside it so the gap is visible.
@@ -78,16 +72,22 @@ export function LeverageCleared() {
               </p>
             )}
 
+            <p className="mb-4 text-[11px] leading-relaxed text-[var(--text2)]">
+              Coverage differs: liquidations cover nine venues; open interest covers the first 100
+              pairs per coin across more venues. These ratios compare scale and sensitivity to
+              filtering, not the percentage of the same book wiped out.
+            </p>
+
             <TableWrap maxHeight={420}>
               <thead>
                 <tr>
                   <Th label="Coin" sortKey="symbol" sort={sort} />
                   <Th
-                    label="Cleared"
+                    label="Liq. / filtered OI"
                     sortKey="clearedFraction"
                     sort={sort}
                     num
-                    hint="Liquidated value over vouched-for open interest. This ranks by how much of a book went, so a small coin losing half a percent sits above a major losing a tenth."
+                    hint="Nine-venue liquidation value divided by filtered open interest from the fetched pairs across more venues. A comparison ratio, not a fraction of the same book closed."
                   />
                   <Th label="" className="w-24" />
                   <Th
@@ -98,46 +98,46 @@ export function LeverageCleared() {
                     hint="Across the nine derivatives venues CoinMarketCap reports, which is the whole universe of that feed."
                   />
                   <Th
-                    label="Open interest"
+                    label="Filtered OI"
                     sortKey="openInterest"
                     sort={sort}
                     num
-                    hint="Summed across the market pairs CoinMarketCap vouches for. Pairs it marks outlying, or excludes from price or volume, are counted in the flagged column instead."
+                    hint="Summed across the market pairs CoinMarketCap does not flag for price or volume. Pairs it marks outlying, or excludes from price or volume, are counted in the flagged column instead."
                   />
                   <Th
                     label="Unfiltered"
                     sortKey="clearedFractionUnfiltered"
                     sort={sort}
                     num
-                    hint="The same ratio divided by every pair the venues report, flagged ones included. This is what a reading that trusts the raw feed would show."
+                    hint="The same liquidation numerator divided by all fetched open interest, including flagged pairs. This still covers only the fetched page."
                   />
                   <Th
                     label="Flagged OI"
                     sortKey="flaggedShare"
                     sort={sort}
                     num
-                    hint="Share of reported open interest sitting on pairs CoinMarketCap does not stand behind."
+                    hint="Share of fetched open interest on pairs carrying price/volume exclusions or an outlier flag. These flags do not verify or disprove open interest."
                   />
                   <Th
                     label="Longs paying"
                     sortKey="fundingLongShare"
                     sort={sort}
                     num
-                    hint="Share of vouched-for perpetual open interest on venues where funding is positive, so longs pay shorts to hold. Read from the same call as the open interest, across every venue CoinMarketCap lists, where the funding desk reads Binance and Hyperliquid. The sign only: the feed omits each venue's settlement period, so the rates themselves are not comparable. Pair counts are long, short and flat."
+                    hint="Share of filtered perpetual open interest on venues where funding is positive, so longs pay shorts to hold. Read from the same call as the open interest, across the fetched venues, where the funding desk reads Binance and Hyperliquid. The sign only: the feed omits each venue's settlement period, so the rates themselves are not comparable. Pair counts are long, short and flat."
                   />
                   <Th
                     label="Premium"
                     sortKey="premiumBps"
                     sort={sort}
                     num
-                    hint="How far perpetuals trade above their index, in basis points (hundredths of a percent): the open-interest-weighted median across the same vouched-for pairs. Unlike funding it carries no settlement period, so it compares across venues as it stands. Positive with longs paying is a consistent long lean; the two disagreeing is worth a look. Venues past 1% are treated as a broken index and dropped, and counted under the figure."
+                    hint="How far perpetuals trade above their index, in basis points (hundredths of a percent): the open-interest-weighted median across the same filtered pairs. Unlike funding it carries no settlement period, so it compares across venues as it stands. Positive with longs paying is a consistent long lean; the two disagreeing is worth a look. Venues past 1% are treated as a broken index and dropped, and counted under the figure."
                   />
                   <Th
                     label="Pairs read"
                     sortKey="cleanPairs"
                     sort={sort}
                     num
-                    hint="Three counts: pairs CoinMarketCap vouches for, pairs on this page that carry any open interest, and pairs the coin has in total. The feed pages at 100 sorted by 24h volume, so the denominator covers the top 100 rather than the whole book. For BTC the unread tail held 4.1% more open interest when this was measured."
+                    hint="Three counts: pairs CoinMarketCap does not flag for price or volume, pairs on this page that carry any open interest, and pairs the coin has in total. The feed pages at 100 sorted by 24h volume, so the denominator covers the top 100 rather than the whole book. For BTC the unread tail held 4.1% more open interest when this was measured."
                   />
                 </tr>
               </thead>

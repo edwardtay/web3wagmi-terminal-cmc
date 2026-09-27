@@ -46,7 +46,7 @@ export const SECTION_GROUPS: { label: string; items: { id: string; label: string
       { id: "oi", label: "Open interest" },
       { id: "liquidations", label: "Liquidations" },
       { id: "forced", label: "Forced selling" },
-      { id: "leverage", label: "Leverage cleared" },
+      { id: "leverage", label: "Liquidations / open interest" },
     ],
   },
   {

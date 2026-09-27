@@ -52,7 +52,7 @@ export function LiqStory({
   win: Win;
   venues: number;
   coins: Coin[];
-  /** Trusted open interest and the liquidations on the same coins, from the leverage desk. */
+  /** Filtered open interest and the liquidations on the same coins, from the leverage desk. */
   pool: { openInterest: number; liquidated24h: number; coins: number } | null;
 }) {
   const longShare = win.total > 0 ? win.long / win.total : 0.5;
@@ -79,7 +79,7 @@ export function LiqStory({
         {mood ? <>, {mood}</> : null}.{" "}
         {concentrated
           ? `Most of it was on one exchange, ${win.largestVenue}.`
-          : `It was spread across about ${Math.round(win.effectiveVenues)} exchanges' worth, so the whole market moved rather than one exchange breaking.`}
+          : `It was spread across about ${Math.round(win.effectiveVenues)} exchanges' worth, within this feed. That measures spread, not the cause of the move.`}
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Step
@@ -88,7 +88,7 @@ export function LiqStory({
           figure={pool ? usdCompact(pool.openInterest) : "n/a"}
           >
           {pool
-            ? `was riding on borrowed bets on the ${pool.coins} biggest coins, counting only trading pairs CoinMarketCap uses in its own figures.`
+            ? `was reported in open positions across ${pool.coins} sampled coins, after excluding pairs flagged for price or volume.`
             : "The size of the betting pool did not load."}
         </Step>
         <Step n={2} title="Force-closed" figure={usdCompact(win.total)}>
@@ -104,13 +104,13 @@ export function LiqStory({
             bought.
           </span>
           {pool && w === "24h" && pool.openInterest > 0 && (
-            <> On those {pool.coins} coins it wiped out {pctPlain((100 * pool.liquidated24h) / pool.openInterest, 2)} of the bets.</>
+            <> On those {pool.coins} coins, liquidations / filtered open interest was {pctPlain((100 * pool.liquidated24h) / pool.openInterest, 2)}. The venue sets differ, so this is a comparison ratio.</>
           )}
         </Step>
         <Step
           n={3}
-          title="What it did to prices"
-          figure={squeezed.length || flushed.length ? `${squeezed.length + flushed.length} coins` : "No push"}
+          title="Alongside price moves"
+          figure={squeezed.length || flushed.length ? `${squeezed.length + flushed.length} coins` : "No pattern"}
         >
           {squeezed.length > 0 && <>Shorts were squeezed on {names(squeezed)}: forced buying as the price rose. </>}
           {flushed.length > 0 && <>Longs were flushed on {names(flushed)}: forced selling as the price fell. </>}
