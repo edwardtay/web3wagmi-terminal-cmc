@@ -91,15 +91,6 @@ function Setups({ setups }: { setups: NonNullable<Brief["setups"]> }) {
 function CmcStrip({ figures }: { figures: NonNullable<Brief["cmc"]> }) {
   return (
     <div className="mt-3 border-t border-[var(--border2)] pt-2.5">
-      <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--text3)]">From CoinMarketCap</span>
-        <a
-          href="/cmc#evidence"
-          className="font-mono text-[10px] text-[var(--accent)] hover:underline"
-        >
-          see the request and response
-        </a>
-      </div>
       <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {figures.map((f) => (
           <a
