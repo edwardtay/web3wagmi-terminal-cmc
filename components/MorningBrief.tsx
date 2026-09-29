@@ -21,7 +21,21 @@ interface Brief {
   text: string;
   read: string[];
   missing: string[];
+  cmc?: { label: string; value: string; detail: string; href: string }[];
+  setups?: { setup: string; asset: string | null; evidence: string; implication: string; invalidatedBy: string }[];
 }
+
+/** Where each desk the note read lives on the page, so a chip is a way to check it. */
+const DESK_HREF: Record<string, string> = {
+  "what changed": "#signals",
+  "exchange flow": "#netflow",
+  "funding and open interest": "#funding",
+  breadth: "#breadth",
+  stress: "#stress",
+  "CMC forced selling": "#forced",
+  "CMC liquidations / open interest": "#leverage",
+  "CMC volume quality": "#volume",
+};
 
 interface Payload {
   ok: boolean;
@@ -41,6 +55,69 @@ function when(iso: string): string {
 }
 
 /**
+ * The setups the note was written from, found in code by joining desks.
+ *
+ * Each one is a fact, what it means for positioning, and the reading that
+ * would prove it wrong. They stand on their own, so the actionable part of the
+ * brief does not depend on how well the model phrased it.
+ */
+function Setups({ setups }: { setups: NonNullable<Brief["setups"]> }) {
+  return (
+    <ol className="mt-3 space-y-2 border-t border-[var(--border2)] pt-2.5">
+      {setups.map((x) => (
+        <li key={`${x.setup}-${x.asset}`} className="min-w-0 text-[12px] leading-relaxed">
+          <div className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--accent)]">{x.setup}</span>
+            {x.asset && <span className="font-mono text-[11px] font-semibold text-[var(--text)]">{x.asset}</span>}
+            <span className="min-w-0 text-[var(--text2)]">{x.evidence}</span>
+          </div>
+          <div className="text-[var(--text)]">{x.implication.charAt(0).toUpperCase() + x.implication.slice(1)}.</div>
+          <div className="text-[11px] text-[var(--text3)]">
+            <span className="font-mono uppercase">wrong if</span> {x.invalidatedBy}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * The CoinMarketCap figures the note was written from, set in code.
+ *
+ * The prose is a model's account and may leave a desk out. These tiles are
+ * computed from the same payloads the model was handed, so the nine-venue
+ * reading is always on screen beside the note, and each one opens its panel.
+ */
+function CmcStrip({ figures }: { figures: NonNullable<Brief["cmc"]> }) {
+  return (
+    <div className="mt-3 border-t border-[var(--border2)] pt-2.5">
+      <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--text3)]">From CoinMarketCap</span>
+        <a
+          href="/cmc#evidence"
+          className="font-mono text-[10px] text-[var(--accent)] hover:underline"
+        >
+          see the request and response
+        </a>
+      </div>
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        {figures.map((f) => (
+          <a
+            key={f.label}
+            href={f.href}
+            className="min-w-0 rounded border border-[var(--border)] bg-[var(--bg2)] px-2.5 py-2 hover:border-[var(--accent)]"
+          >
+            <div className="font-mono text-[9px] uppercase tracking-wide text-[var(--text3)]">{f.label}</div>
+            <div className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-[var(--text)]">{f.value}</div>
+            {f.detail && <div className="mt-0.5 text-[11px] leading-snug text-[var(--text2)]">{f.detail}</div>}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * The note as points, structured here rather than by the model.
  *
  * The prompt already fixes what each sentence does: the first is what matters
@@ -52,7 +129,7 @@ function when(iso: string): string {
  * A single sentence stays a sentence. Bulleting one point is furniture.
  */
 function BriefBody({ text }: { text: string }) {
-  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z(])/).filter((s) => s.trim());
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9$(])/).filter((s) => s.trim());
   if (sentences.length < 3) {
     return <p className="text-[14px] leading-relaxed text-[var(--text)]">{text}</p>;
   }
@@ -107,7 +184,7 @@ export function MorningBrief() {
     <Section
       title="The brief"
       id="brief"
-      hint="Written by the terminal rather than asked for: one pass over every desk, in prose, once per six-hour session anchored to 00:00, 06:00, 12:00 and 18:00 UTC, which are roughly the handovers between Asia, Europe and New York. The note names its own session, so the one on screen is the one everybody else is reading and the next is due at a time you can predict. Every figure in it comes from a panel below and nothing was gathered by the model, which is handed the readings and asked only to write them up. It describes conditions and never recommends a trade. Earlier notes are kept only while the server runs, because this terminal has no database and does not need one for anything else."
+      hint="Written by the terminal rather than asked for: one pass over every desk, in prose, once per six-hour session anchored to 00:00, 06:00, 12:00 and 18:00 UTC, which are roughly the handovers between Asia, Europe and New York. The note names its own session, so the one on screen is the one everybody else is reading and the next is due at a time you can predict. Every figure in it comes from a panel below and nothing was gathered by the model. Three of the desks are CoinMarketCap: forced selling across nine venues, liquidations against open interest, and reported against counted volume, and the tiles under the note show those readings as the model received them. The setups are found in code before the model runs: each joins two desks, says what it means for positioning, and names the reading that would prove it wrong, which is handed the readings and asked only to write them up. It describes conditions and never recommends a trade. Earlier notes are kept only while the server runs, because this terminal has no database and does not need one for anything else."
       right={
         data?.brief ? (
           <span className="font-mono text-[10px] text-[var(--text3)]">{when(data.brief.writtenAt)}</span>
@@ -126,17 +203,31 @@ export function MorningBrief() {
           <>
             <BriefBody text={data.brief.text} />
 
+            {data.brief.setups && data.brief.setups.length > 0 && <Setups setups={data.brief.setups} />}
+
+            {data.brief.cmc && data.brief.cmc.length > 0 && <CmcStrip figures={data.brief.cmc} />}
+
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-[var(--border2)] pt-2.5">
               <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--text3)]">
                 {data.brief.session ?? data.brief.date}
               </span>
               <span className="flex flex-wrap items-center gap-1 font-mono text-[9px] text-[var(--text3)]">
                 read
-                {data.brief.read.map((r) => (
-                  <span key={r} className="rounded border border-[var(--border)] bg-[var(--bg2)] px-1 py-px text-[var(--text2)]">
-                    {r}
-                  </span>
-                ))}
+                {data.brief.read.map((r) =>
+                  DESK_HREF[r] ? (
+                    <a
+                      key={r}
+                      href={DESK_HREF[r]}
+                      className="rounded border border-[var(--border)] bg-[var(--bg2)] px-1 py-px text-[var(--text2)] hover:border-[var(--accent)] hover:text-[var(--text)]"
+                    >
+                      {r}
+                    </a>
+                  ) : (
+                    <span key={r} className="rounded border border-[var(--border)] bg-[var(--bg2)] px-1 py-px text-[var(--text2)]">
+                      {r}
+                    </span>
+                  )
+                )}
               </span>
               {data.brief.missing.length > 0 && (
                 <span className="font-mono text-[9px] text-[var(--text3)]">
