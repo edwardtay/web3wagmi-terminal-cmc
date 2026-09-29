@@ -89,7 +89,7 @@ function ShareBar({ rows, total }: { rows: ChainRow[]; total: number }) {
           />
         ))}
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4">
         {segments.map((s) => (
           <div key={s.name} className="flex min-w-0 items-start gap-2">
             <span

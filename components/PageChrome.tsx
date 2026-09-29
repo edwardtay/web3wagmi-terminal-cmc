@@ -31,7 +31,7 @@ export function PageChrome({
   /** Path segment, for the structured data. */
   crumb: string;
   intro?: React.ReactNode;
-  /** Prose pages read better narrow; a table page wants the room. */
+  /** Prose pages are capped at a reading measure; a table page gets the full width. */
   wide?: boolean;
   children: React.ReactNode;
 }) {
@@ -61,12 +61,14 @@ export function PageChrome({
           <span className="text-[var(--text2)]">{title}</span>
         </nav>
 
-        <div className={wide ? "" : "max-w-3xl"}>
+        {/* The heading and intro are prose, so they stay at a reading measure
+            even when the page below them runs the full width. */}
+        <div className="max-w-[70ch]">
           <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--text)]">{title}</h1>
           {intro && <div className="mt-2 text-sm leading-relaxed text-[var(--text2)]">{intro}</div>}
         </div>
 
-        <div className="mt-6">{children}</div>
+        <div className={wide ? "mt-6" : "mt-6 max-w-[70ch]"}>{children}</div>
       </main>
 
       <script

@@ -136,7 +136,7 @@ export function Composites() {
   // count into about 150px, which is where "Above 50d" stopped being a label
   // and became a puzzle.
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 ultra:grid-cols-7">
       <Stat
         label="Market stress"
         value={s?.score == null ? "n/a" : num(s.score, 0)}

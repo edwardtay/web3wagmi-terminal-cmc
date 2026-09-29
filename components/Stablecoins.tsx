@@ -123,7 +123,7 @@ function ShareBar({ rows, total }: { rows: StableRow[]; total: number }) {
           />
         ))}
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4">
         {segments.map((s) => (
           <div key={s.key} className="flex min-w-0 items-start gap-2">
             <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: s.color }} aria-hidden />

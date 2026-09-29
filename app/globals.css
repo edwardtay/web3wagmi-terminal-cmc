@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Wide-desk breakpoints. Named so they sort with sm/lg/xl; an arbitrary
+   min-[1400px] variant is emitted before lg and loses to it. */
+@theme {
+  --breakpoint-wide: 87.5rem;  /* 1400px */
+  --breakpoint-ultra: 112.5rem; /* 1800px */
+}
+
 /* =============================================================
    WEB3WAGMI TERMINAL · design system
    A crypto market terminal. Light by default, dark on demand, and
@@ -382,12 +389,11 @@ h3.panel-h {
 
 /* The page shell. Header, body and footer must share one width or the brand
    sits inset from the nav directly beneath it, which is what four different
-   max-widths were doing. */
+   max-widths were doing. It runs the full viewport on a large screen so grids,
+   tables and charts get the room; only prose is capped, at about 70ch. */
 .shell {
-  margin-inline: auto;
   width: 100%;
-  max-width: 1440px;
-  padding-inline: 1rem;
+  padding-inline: clamp(16px, 4vw, 64px);
 }
 
 /* The focused instrument's zone.

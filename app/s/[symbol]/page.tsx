@@ -142,7 +142,7 @@ export default async function SymbolPage({ params }: { params: Promise<{ symbol:
             <Unavailable what="Daily history" />
           </Panel>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 wide:grid-cols-9">
             {stats.map((s) => (
               <div key={s.label} className="card p-3">
                 <div className="flex min-w-0 items-center gap-1">
