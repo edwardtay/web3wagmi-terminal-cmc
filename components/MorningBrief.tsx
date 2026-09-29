@@ -120,7 +120,12 @@ function CmcStrip({ figures }: { figures: NonNullable<Brief["cmc"]> }) {
  * A single sentence stays a sentence. Bulleting one point is furniture.
  */
 function BriefBody({ text }: { text: string }) {
-  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9$(])/).filter((s) => s.trim());
+  // Lowercase starts are split too: the model once opened a sentence with
+  // "shorts pay", and the whole note fell back to one paragraph.
+  const sentences = text
+    .split(/(?<=[.!?])\s+(?=[A-Za-z0-9$(])/)
+    .filter((s) => s.trim())
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1));
   if (sentences.length < 3) {
     return <p className="text-[14px] leading-relaxed text-[var(--text)]">{text}</p>;
   }
