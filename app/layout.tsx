@@ -61,9 +61,6 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// Light by default. Apply a stored dark choice before paint to avoid a flash.
-const themeScript = `try{var t=localStorage.getItem('w3w-terminal-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}`;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -72,9 +69,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       data-theme="light"
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
       <body>
         <SiteNav active="tools" />
         {children}

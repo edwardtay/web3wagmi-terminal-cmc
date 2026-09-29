@@ -2,14 +2,13 @@
 
 import { useEffect, useRef } from "react";
 
-import { ThemeToggle } from "./ThemeToggle";
 import { Alerts } from "./Alerts";
 import { SECTION_GROUPS, useActiveSection } from "./SideNav";
 import { SymbolPicker } from "./SymbolPicker";
 
 // The terminal's own bar, below the two shared web3wagmi strips (44px each),
 // hence top-[88px]. Holds the section wordmark and the three controls a
-// terminal needs within reach: the focused instrument, search, alerts, theme.
+// terminal needs within reach: the focused instrument, search, alerts.
 
 
 export function TerminalHeader() {
@@ -79,7 +78,6 @@ export function TerminalHeader() {
             Status
           </a>
           <Alerts />
-          <ThemeToggle />
         </div>
       </div>
 
